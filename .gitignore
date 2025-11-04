@@ -33,6 +33,10 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Documentation
+*.[Mm][Dd]
+!README.md
+
 # Testing
 coverage/
 .nyc_output/
