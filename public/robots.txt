@@ -1,0 +1,3 @@
+# Prevent search engine indexing for privacy
+User-agent: *
+Disallow: /

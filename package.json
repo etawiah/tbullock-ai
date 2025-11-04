@@ -1,0 +1,31 @@
+{
+  "name": "ai-bartender",
+  "version": "1.0.0",
+  "description": "AI-powered bartender assistant with inventory management",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "deploy": "npm run build && wrangler pages deploy dist",
+    "worker:dev": "wrangler dev worker/worker.js",
+    "worker:deploy": "wrangler deploy"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^5.4.11"
+  },
+  "keywords": [
+    "bartender",
+    "ai",
+    "cocktails",
+    "cloudflare",
+    "gemini"
+  ],
+  "author": "Eugene Tawiah",
+  "license": "MIT"
+}
