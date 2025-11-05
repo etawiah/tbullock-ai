@@ -143,20 +143,12 @@ function App() {
         enrichedInventory = enrichData.inventory || normalizedInventory
       }
 
-      // Save the enriched inventory (Cloudflare Access handles authentication)
+      // Save the enriched inventory
       const response = await fetch(`${WORKER_URL}/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventory: enrichedInventory })
       })
-
-      if (response.status === 403 || response.status === 401) {
-        // User not authenticated via Cloudflare Access
-        const errorData = await response.json().catch(() => ({ error: 'Authentication required' }))
-        alert(errorData.error || 'You must log in with your family email (@eugenetawiah.com or @tawiah.net) to edit inventory')
-        setEditingInventory(false)
-        return
-      }
 
       if (response.ok) {
         setInventory(enrichedInventory)
@@ -466,7 +458,6 @@ function App() {
                     cursor: 'pointer',
                     fontSize: '14px'
                   }}
-                  title="Protected by Cloudflare Access - family login required"
                 >
                   Edit
                 </button>
