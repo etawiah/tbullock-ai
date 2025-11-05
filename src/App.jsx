@@ -58,6 +58,8 @@ function App() {
   const [inventory, setInventory] = useState([])
   const [showInventory, setShowInventory] = useState(false)
   const [editingInventory, setEditingInventory] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
+  const [collapsedTypes, setCollapsedTypes] = useState({})
   const messagesEndRef = useRef(null)
   const fieldLabelStyle = {
     display: 'block',
@@ -216,6 +218,32 @@ function App() {
   const removeInventoryItem = (index) => {
     const newInventory = inventory.filter((_, i) => i !== index)
     setInventory(newInventory)
+  }
+
+  const toggleTypeCollapse = (type) => {
+    setCollapsedTypes(prev => ({ ...prev, [type]: !prev[type] }))
+  }
+
+  // Group inventory by type and apply search filter
+  const getGroupedInventory = () => {
+    const filtered = inventory.filter(item => {
+      if (!searchQuery) return true
+      const query = searchQuery.toLowerCase()
+      return (
+        item.name.toLowerCase().includes(query) ||
+        item.type.toLowerCase().includes(query) ||
+        (item.flavorNotes && item.flavorNotes.toLowerCase().includes(query))
+      )
+    })
+
+    const grouped = {}
+    filtered.forEach((item, index) => {
+      const type = item.type || 'Other'
+      if (!grouped[type]) grouped[type] = []
+      grouped[type].push({ ...item, originalIndex: inventory.indexOf(item) })
+    })
+
+    return grouped
   }
 
   return (
@@ -442,6 +470,24 @@ function App() {
               )}
             </div>
 
+            {/* Search Bar */}
+            <div style={{ marginBottom: '16px' }}>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by name, type, or flavor notes..."
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  border: '2px solid #e0e0e0',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+
             {inventory.length === 0 ? (
               <div style={{ textAlign: 'center', color: '#666', padding: '40px 0' }}>
                 <p>Your bar is empty!</p>
@@ -463,12 +509,52 @@ function App() {
               </div>
             ) : (
               <div>
-                {inventory.map((item, idx) => {
-                  const typeOptions = item.type && !SPIRIT_TYPES.includes(item.type)
-                    ? [item.type, ...SPIRIT_TYPES]
-                    : SPIRIT_TYPES
+                {/* Grouped by Type */}
+                {Object.entries(getGroupedInventory()).map(([type, items]) => {
+                  const isCollapsed = collapsedTypes[type]
 
                   return (
+                    <div key={type} style={{ marginBottom: '16px' }}>
+                      {/* Type Header */}
+                      <div
+                        onClick={() => toggleTypeCollapse(type)}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '12px 16px',
+                          background: '#667eea',
+                          color: 'white',
+                          borderRadius: '8px',
+                          cursor: 'pointer',
+                          userSelect: 'none',
+                          marginBottom: '8px'
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <span style={{ fontSize: '18px', fontWeight: '600' }}>
+                            {isCollapsed ? '▶' : '▼'}
+                          </span>
+                          <span style={{ fontSize: '16px', fontWeight: '600' }}>{type}</span>
+                          <span style={{
+                            fontSize: '14px',
+                            background: 'rgba(255,255,255,0.2)',
+                            padding: '2px 8px',
+                            borderRadius: '12px'
+                          }}>
+                            {items.length}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Items in this type */}
+                      {!isCollapsed && items.map((item) => {
+                        const idx = item.originalIndex
+                        const typeOptions = item.type && !SPIRIT_TYPES.includes(item.type)
+                          ? [item.type, ...SPIRIT_TYPES]
+                          : SPIRIT_TYPES
+
+                        return (
                     <div
                       key={idx}
                       style={{
@@ -604,7 +690,10 @@ function App() {
                     </div>
                   )
                 })}
-                
+                      </div>
+                    )
+                  })}
+
                 {editingInventory && (
                   <button
                     onClick={addInventoryItem}
