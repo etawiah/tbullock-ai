@@ -1,7 +1,7 @@
 {
-  "name": "Tom Bullock - Home AI Bartender",
+  "name": "Tom Bullock - Home AI personal mixologist",
   "short_name": "Tom Bullock",
-  "description": "Home AI Bartender powered by Tom Bullock's classic cocktail recipes",
+  "description": "Your Home AI personal mixologist powered by classic cocktail knowledge",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#667eea",
