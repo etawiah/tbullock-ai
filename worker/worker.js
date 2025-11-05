@@ -33,6 +33,65 @@ export default {
         });
       }
 
+      // Route: Enrich inventory with flavor notes
+      if (url.pathname === '/api/enrich-inventory' && request.method === 'POST') {
+        const { inventory } = await request.json();
+
+        // Find items that need enrichment (missing flavor notes)
+        const itemsToEnrich = inventory.filter(item =>
+          item.name && !item.flavorNotes && item.type !== 'Other'
+        );
+
+        // Only enrich up to 5 items at a time to avoid rate limits
+        const enrichBatch = itemsToEnrich.slice(0, 5);
+
+        // Enrich each item with Gemini API
+        const enrichedItems = await Promise.all(
+          enrichBatch.map(async (item) => {
+            try {
+              const prompt = `Provide a brief (2-3 sentence) flavor profile for "${item.name}" ${item.type}. Focus on tasting notes, aroma, and best uses in cocktails. Be concise and specific.`;
+
+              const geminiResponse = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${env.GEMINI_API_KEY}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [{
+                      role: 'user',
+                      parts: [{ text: prompt }]
+                    }],
+                    generationConfig: {
+                      temperature: 0.7,
+                      maxOutputTokens: 256,
+                    }
+                  })
+                }
+              );
+
+              if (geminiResponse.ok) {
+                const geminiData = await geminiResponse.json();
+                const flavorNotes = geminiData.candidates[0].content.parts[0].text.trim();
+                return { ...item, flavorNotes };
+              }
+            } catch (error) {
+              console.error(`Failed to enrich ${item.name}:`, error);
+            }
+            return item;
+          })
+        );
+
+        // Merge enriched items back into inventory
+        const enrichedInventory = inventory.map(item => {
+          const enriched = enrichedItems.find(e => e.name === item.name);
+          return enriched || item;
+        });
+
+        return new Response(JSON.stringify({ inventory: enrichedInventory }), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
       // Route: Chat with AI bartender
       if (url.pathname === '/api/chat' && request.method === 'POST') {
         const { message, inventory, chatHistory } = await request.json();

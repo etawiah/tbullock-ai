@@ -1,0 +1,266 @@
+[
+  {
+    "type": "Vodka",
+    "name": "New Amsterdam Vodka",
+    "proof": "80",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Cognac",
+    "name": "Hennessy Pure White",
+    "proof": "80",
+    "bottleSizeMl": "700",
+    "amountRemaining": "700",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Whiskey",
+    "name": "Old Pali Road",
+    "proof": "90",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Rum",
+    "name": "Old Monk XXX Rum",
+    "proof": "90",
+    "bottleSizeMl": "750",
+    "amountRemaining": "563",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Scotch",
+    "name": "Tullibardine Highlands Single Malt",
+    "proof": "80",
+    "bottleSizeMl": "750",
+    "amountRemaining": "188",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Scotch",
+    "name": "Laphroaig Islay Single Malt Oak Select",
+    "proof": "80",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": "Sweet, Subtle, Smoke"
+  },
+  {
+    "type": "Whiskey",
+    "name": "Bains Single Grain",
+    "proof": "90",
+    "bottleSizeMl": "1000",
+    "amountRemaining": "500",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Scotch",
+    "name": "Oban Little Bay Single Malt",
+    "proof": "90",
+    "bottleSizeMl": "750",
+    "amountRemaining": "188",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Whiskey",
+    "name": "Uncle Nearest 1856",
+    "proof": "200",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Whiskey",
+    "name": "Uncle Nearest 1884",
+    "proof": "190",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Whiskey",
+    "name": "Unclea Nearest Rye",
+    "proof": "200",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Scotch",
+    "name": "Johnnie Walker Double Black Blended",
+    "proof": "80",
+    "bottleSizeMl": "750",
+    "amountRemaining": "563",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Scotch",
+    "name": "The Glenlivet Single Malt Distillers Reserve",
+    "proof": "80",
+    "bottleSizeMl": "1000",
+    "amountRemaining": "1000",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Whiskey",
+    "name": "Southern Comfort",
+    "proof": "200",
+    "bottleSizeMl": "1750",
+    "amountRemaining": "1313",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Gin",
+    "name": "Caledonia Barr Hill Gin",
+    "proof": "180",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Tequila",
+    "name": "Montezuma Aztec Gold Tequila",
+    "proof": "160",
+    "bottleSizeMl": "1750",
+    "amountRemaining": "875",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Tequila",
+    "name": "el Olvido Anejo 100% Agave",
+    "proof": "160",
+    "bottleSizeMl": "750",
+    "amountRemaining": "563",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Tequila",
+    "name": "1800 Tequila Blanco Blue Agave",
+    "proof": "160",
+    "bottleSizeMl": "750",
+    "amountRemaining": "188",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Gin",
+    "name": "Gilbey's Gin",
+    "proof": "80",
+    "bottleSizeMl": "1750",
+    "amountRemaining": "1750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Tequila",
+    "name": "1800 Tequila Reposado",
+    "proof": "160",
+    "bottleSizeMl": "750",
+    "amountRemaining": "375",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Gin",
+    "name": "Bombay Sapphire Dry Gin",
+    "proof": "190",
+    "bottleSizeMl": "750",
+    "amountRemaining": "375",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Brandy",
+    "name": "Paul Masson Grande Amber Brandy",
+    "proof": "160",
+    "bottleSizeMl": "1750",
+    "amountRemaining": "1313",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Brandy",
+    "name": "E&J Brandy V.S.",
+    "proof": "160",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "1800 The Ultimate Margarita",
+    "proof": "40",
+    "bottleSizeMl": "1750",
+    "amountRemaining": "438",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "Leroux Creme de Cassis",
+    "proof": "60",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": "Black Currant"
+  },
+  {
+    "type": "Liqueur",
+    "name": "Llord's Blue Curacao",
+    "proof": "60",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Aperitif",
+    "name": "Absente Absinthe Refined",
+    "proof": "110",
+    "bottleSizeMl": "750",
+    "amountRemaining": "563",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "Leroux Blackberry Flavored Brandy",
+    "proof": "70",
+    "bottleSizeMl": "375",
+    "amountRemaining": "281",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "di Amore Amaretto",
+    "proof": "80",
+    "bottleSizeMl": "750",
+    "amountRemaining": "563",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "Villa Massa Limoncello",
+    "proof": "60",
+    "bottleSizeMl": "1000",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "Pallini Limoncello",
+    "proof": "60",
+    "bottleSizeMl": "500",
+    "amountRemaining": "375",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "Rumple Minze Peppermint",
+    "proof": "200",
+    "bottleSizeMl": "750",
+    "amountRemaining": "750",
+    "flavorNotes": ""
+  },
+  {
+    "type": "Liqueur",
+    "name": "Melon Cream Liqeur",
+    "proof": "40",
+    "bottleSizeMl": "750",
+    "amountRemaining": "375",
+    "flavorNotes": ""
+  }
+]

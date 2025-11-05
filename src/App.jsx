@@ -90,7 +90,26 @@ function App() {
     try {
       const response = await fetch(`${WORKER_URL}/inventory`)
       const data = await response.json()
-      const normalizedInventory = ensureInventoryShape(data.inventory || [])
+      let inventoryData = data.inventory || []
+
+      // If inventory is empty, load initial inventory from CSV
+      if (inventoryData.length === 0) {
+        try {
+          const initialResponse = await fetch('/initial-inventory.json')
+          const initialData = await initialResponse.json()
+          inventoryData = initialData
+          // Save the initial inventory to the backend
+          await fetch(`${WORKER_URL}/inventory`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ inventory: initialData })
+          })
+        } catch (err) {
+          console.error('Failed to load initial inventory:', err)
+        }
+      }
+
+      const normalizedInventory = ensureInventoryShape(inventoryData)
       setInventory(normalizedInventory)
     } catch (error) {
       console.error('Failed to load inventory:', error)
@@ -100,13 +119,28 @@ function App() {
   const saveInventory = async (newInventory) => {
     try {
       const normalizedInventory = ensureInventoryShape(newInventory)
-      const response = await fetch(`${WORKER_URL}/inventory`, {
+
+      // First, enrich items with missing flavor notes
+      const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventory: normalizedInventory })
       })
+
+      let enrichedInventory = normalizedInventory
+      if (enrichResponse.ok) {
+        const enrichData = await enrichResponse.json()
+        enrichedInventory = enrichData.inventory || normalizedInventory
+      }
+
+      // Then save the enriched inventory
+      const response = await fetch(`${WORKER_URL}/inventory`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ inventory: enrichedInventory })
+      })
       if (response.ok) {
-        setInventory(normalizedInventory)
+        setInventory(enrichedInventory)
         setEditingInventory(false)
       }
     } catch (error) {
@@ -203,9 +237,9 @@ function App() {
         alignItems: 'center'
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '24px' }}>🍹 AI Bartender</h1>
+          <h1 style={{ margin: 0, fontSize: '24px' }}>🍹 Tom Bullock</h1>
           <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
-            Your personal mixologist
+            Home AI Bartender
           </p>
         </div>
         <button
