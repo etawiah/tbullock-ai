@@ -68,9 +68,6 @@ function App() {
   const [editingInventory, setEditingInventory] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [collapsedTypes, setCollapsedTypes] = useState({})
-  const [showPinModal, setShowPinModal] = useState(false)
-  const [pinInput, setPinInput] = useState('')
-  const [pinError, setPinError] = useState('')
   const messagesEndRef = useRef(null)
   const fieldLabelStyle = {
     display: 'block',
@@ -88,18 +85,6 @@ function App() {
   }
   
   const WORKER_URL = 'https://bartender-api.eugene-tawiah.workers.dev/api' // Cloudflare Worker endpoint
-
-  // PIN management helpers
-  const getStoredPin = () => localStorage.getItem('inventoryPin')
-  const setStoredPin = (pin) => localStorage.setItem('inventoryPin', pin)
-  const clearStoredPin = () => {
-    localStorage.removeItem('inventoryPin')
-    setPinInput('')
-  }
-  const resetInventoryPin = () => {
-    clearStoredPin()
-    alert('PIN cleared. You will be prompted on next save.')
-  }
 
   // Load inventory on mount
   useEffect(() => {
@@ -143,13 +128,6 @@ function App() {
 
   const saveInventory = async (newInventory) => {
     try {
-      // Check for PIN before saving
-      const pin = getStoredPin()
-      if (!pin) {
-        setShowPinModal(true)
-        return
-      }
-
       const normalizedInventory = ensureInventoryShape(newInventory)
 
       // First, enrich items with missing flavor notes
@@ -165,21 +143,18 @@ function App() {
         enrichedInventory = enrichData.inventory || normalizedInventory
       }
 
-      // Then save the enriched inventory with PIN header
+      // Save the enriched inventory (Cloudflare Access handles authentication)
       const response = await fetch(`${WORKER_URL}/inventory`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-inventory-pin': pin
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventory: enrichedInventory })
       })
 
       if (response.status === 403 || response.status === 401) {
-        // PIN is invalid, clear it and prompt again
-        clearStoredPin()
-        setPinError('PIN invalid or expired. Please try again.')
-        setShowPinModal(true)
+        // User not authenticated via Cloudflare Access
+        const errorData = await response.json().catch(() => ({ error: 'Authentication required' }))
+        alert(errorData.error || 'You must log in with your family email (@eugenetawiah.com or @tawiah.net) to edit inventory')
+        setEditingInventory(false)
         return
       }
 
@@ -266,42 +241,6 @@ function App() {
   const removeInventoryItem = (index) => {
     const newInventory = inventory.filter((_, i) => i !== index)
     setInventory(newInventory)
-  }
-
-  const handlePinSubmit = () => {
-    if (!pinInput.trim()) {
-      setPinError('Please enter a PIN')
-      return
-    }
-    // Store the PIN and close modal
-    setStoredPin(pinInput.trim())
-    setShowPinModal(false)
-    setPinError('')
-    setPinInput('')
-    // If we're entering edit mode for the first time, enable it
-    if (!editingInventory) {
-      setEditingInventory(true)
-    } else {
-      // Otherwise, retry saving inventory
-      saveInventory(inventory)
-    }
-  }
-
-  const handlePinCancel = () => {
-    setShowPinModal(false)
-    setPinError('')
-    setPinInput('')
-    setEditingInventory(false)
-  }
-
-  const startEditingInventory = () => {
-    // Check for PIN before entering edit mode
-    const pin = getStoredPin()
-    if (!pin) {
-      setShowPinModal(true)
-      return
-    }
-    setEditingInventory(true)
   }
 
   const toggleTypeCollapse = (type) => {
@@ -517,7 +456,7 @@ function App() {
               <h2 style={{ margin: 0, fontSize: '20px' }}>Bar Inventory</h2>
               {!editingInventory ? (
                 <button
-                  onClick={startEditingInventory}
+                  onClick={() => setEditingInventory(true)}
                   style={{
                     background: '#667eea',
                     color: 'white',
@@ -527,6 +466,7 @@ function App() {
                     cursor: 'pointer',
                     fontSize: '14px'
                   }}
+                  title="Protected by Cloudflare Access - family login required"
                 >
                   Edit
                 </button>
@@ -988,105 +928,6 @@ function App() {
                 )}
               </div>
             )}
-          </div>
-        </div>
-      )}
-
-      {/* PIN Modal */}
-      {showPinModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            background: 'white',
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '400px',
-            width: '90%',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.2)'
-          }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', color: '#333' }}>
-              🔒 Bartender PIN Required
-            </h3>
-            <p style={{ margin: '0 0 16px 0', fontSize: '14px', color: '#666', lineHeight: '1.5' }}>
-              Enter your bartender PIN to edit the inventory. This keeps your bar data safe from unauthorized changes.
-            </p>
-
-            {pinError && (
-              <div style={{
-                padding: '8px 12px',
-                background: '#fee',
-                color: '#c33',
-                borderRadius: '6px',
-                fontSize: '14px',
-                marginBottom: '12px'
-              }}>
-                {pinError}
-              </div>
-            )}
-
-            <input
-              type="password"
-              value={pinInput}
-              onChange={(e) => setPinInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handlePinSubmit()}
-              placeholder="Enter PIN"
-              autoFocus
-              style={{
-                width: '100%',
-                padding: '12px',
-                borderRadius: '8px',
-                border: '2px solid #e0e0e0',
-                fontSize: '14px',
-                marginBottom: '16px',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-
-            <div style={{ display: 'flex', gap: '8px' }}>
-              <button
-                onClick={handlePinCancel}
-                style={{
-                  flex: 1,
-                  background: '#f3f4f6',
-                  color: '#666',
-                  border: 'none',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handlePinSubmit}
-                style={{
-                  flex: 1,
-                  background: '#667eea',
-                  color: 'white',
-                  border: 'none',
-                  padding: '10px',
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: '600'
-                }}
-              >
-                Submit
-              </button>
-            </div>
           </div>
         </div>
       )}

@@ -1,13 +1,103 @@
 // Cloudflare Worker - Handles AI requests and inventory management
+// POST /api/inventory requires Cloudflare Access authentication
+// Relies on CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD environment variables
+
+// Cache JWKS certificates to avoid repeated fetches (5-minute TTL)
+let jwksCache = { keys: null, expiresAt: 0 };
+
+// Base64url decode helper
+function base64urlDecode(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4) str += '=';
+  return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+}
+
+// Fetch and cache Cloudflare Access JWKS
+async function getJWKS(teamDomain) {
+  const now = Date.now();
+  if (jwksCache.keys && jwksCache.expiresAt > now) {
+    return jwksCache.keys;
+  }
+
+  const certsUrl = `https://${teamDomain}/cdn-cgi/access/certs`;
+  const response = await fetch(certsUrl);
+  if (!response.ok) {
+    throw new Error('Failed to fetch JWKS');
+  }
+
+  const data = await response.json();
+  jwksCache = {
+    keys: data.keys,
+    expiresAt: now + 5 * 60 * 1000 // 5 minutes
+  };
+  return data.keys;
+}
+
+// Validate Cloudflare Access JWT
+async function validateAccessJWT(jwt, teamDomain, audience) {
+  if (!jwt) return null;
+
+  try {
+    // Parse JWT (header.payload.signature)
+    const parts = jwt.split('.');
+    if (parts.length !== 3) return null;
+
+    const header = JSON.parse(new TextDecoder().decode(base64urlDecode(parts[0])));
+    const payload = JSON.parse(new TextDecoder().decode(base64urlDecode(parts[1])));
+    const signature = base64urlDecode(parts[2]);
+
+    // Check expiration
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return null; // Expired
+    }
+
+    // Check audience
+    if (payload.aud && !payload.aud.includes(audience)) {
+      return null; // Wrong audience
+    }
+
+    // Fetch JWKS and find matching key
+    const keys = await getJWKS(teamDomain);
+    const key = keys.find(k => k.kid === header.kid);
+    if (!key) return null;
+
+    // Import public key for verification
+    const cryptoKey = await crypto.subtle.importKey(
+      'jwk',
+      key,
+      { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+      false,
+      ['verify']
+    );
+
+    // Verify signature
+    const signatureData = new TextEncoder().encode(`${parts[0]}.${parts[1]}`);
+    const isValid = await crypto.subtle.verify(
+      'RSASSA-PKCS1-v1_5',
+      cryptoKey,
+      signature,
+      signatureData
+    );
+
+    if (!isValid) return null;
+
+    // Return verified payload
+    return payload;
+  } catch (error) {
+    console.error('JWT validation error:', error);
+    return null;
+  }
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    
+
     // CORS headers
     const corsHeaders = {
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Allow-Headers': 'Content-Type, CF-Access-Jwt-Assertion',
     };
 
     // Handle CORS preflight
@@ -24,21 +114,39 @@ export default {
         });
       }
 
-      // Route: Save inventory (requires PIN)
+      // Route: Save inventory (requires Cloudflare Access authentication)
+      // TODO: Set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD via `wrangler secret put`
       if (url.pathname === '/api/inventory' && request.method === 'POST') {
-        // Check for PIN in header
-        const providedPin = request.headers.get('x-inventory-pin');
-        const requiredPin = env.INVENTORY_WRITE_PIN;
+        // Extract and validate Cloudflare Access JWT
+        const jwt = request.headers.get('CF-Access-Jwt-Assertion');
+        const teamDomain = env.CF_ACCESS_TEAM_DOMAIN;
+        const audience = env.CF_ACCESS_AUD;
 
-        if (!providedPin || !requiredPin || providedPin !== requiredPin) {
+        if (!teamDomain || !audience) {
+          console.error('Missing CF_ACCESS_TEAM_DOMAIN or CF_ACCESS_AUD environment variables');
           return new Response(
-            JSON.stringify({ error: 'Forbidden: Invalid or missing PIN' }),
+            JSON.stringify({ error: 'Server configuration error' }),
+            {
+              status: 500,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        const payload = await validateAccessJWT(jwt, teamDomain, audience);
+        if (!payload) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: You must log in with your family email to edit inventory' }),
             {
               status: 403,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             }
           );
         }
+
+        // Log who edited (optional - helps with accountability)
+        const verifiedEmail = request.headers.get('CF-Access-Verified-Email') || payload.email || 'unknown';
+        console.log(`Inventory updated by: ${verifiedEmail}`);
 
         const { inventory } = await request.json();
         await env.BARTENDER_KV.put('inventory', JSON.stringify(inventory));
