@@ -1,5 +1,56 @@
 import { useState, useEffect, useRef } from 'react'
 
+const SPIRIT_TYPES = [
+  'Vodka',
+  'Cognac',
+  'Whiskey',
+  'Rum',
+  'Scotch',
+  'Gin',
+  'Tequila',
+  'Brandy',
+  'Bourbon',
+  'Rye',
+  'Mezcal',
+  'Liqueur',
+  'Aperitif',
+  'Digestif',
+  'Other'
+]
+
+const createEmptyInventoryItem = () => ({
+  type: SPIRIT_TYPES[0],
+  name: '',
+  proof: '',
+  bottleSizeMl: '',
+  amountRemaining: '',
+  flavorNotes: ''
+})
+
+const normalizeInventoryItem = (item) => {
+  if (!item || typeof item !== 'object') {
+    return createEmptyInventoryItem()
+  }
+
+  const rawType = item.type ? String(item.type) : ''
+  const normalizedType = rawType ? rawType : 'Other'
+  const hasExplicitAmount = item.amountRemaining === 0 || Boolean(item.amountRemaining)
+  const amountFromLegacy = !hasExplicitAmount && item.quantity ? String(item.quantity) : ''
+
+  return {
+    type: SPIRIT_TYPES.includes(normalizedType) ? normalizedType : (normalizedType || 'Other'),
+    name: item.name ? String(item.name) : '',
+    proof: item.proof === 0 || item.proof ? String(item.proof) : '',
+    bottleSizeMl: item.bottleSizeMl === 0 || item.bottleSizeMl ? String(item.bottleSizeMl) : '',
+    amountRemaining: hasExplicitAmount ? String(item.amountRemaining) : amountFromLegacy,
+    flavorNotes: item.flavorNotes
+      ? String(item.flavorNotes)
+      : (amountFromLegacy && item.unit ? `Legacy amount tracked as ${amountFromLegacy} ${item.unit}` : '')
+  }
+}
+
+const ensureInventoryShape = (items = []) => items.map(normalizeInventoryItem)
+
 function App() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -8,6 +59,20 @@ function App() {
   const [showInventory, setShowInventory] = useState(false)
   const [editingInventory, setEditingInventory] = useState(false)
   const messagesEndRef = useRef(null)
+  const fieldLabelStyle = {
+    display: 'block',
+    fontSize: '12px',
+    color: '#4b5563',
+    fontWeight: 600,
+    marginBottom: '4px'
+  }
+  const fieldInputStyle = {
+    width: '100%',
+    padding: '8px',
+    borderRadius: '6px',
+    border: '1px solid #d1d5db',
+    fontSize: '14px'
+  }
   
   const WORKER_URL = 'https://bartender-api.eugene-tawiah.workers.dev/api' // Cloudflare Worker endpoint
 
@@ -25,7 +90,8 @@ function App() {
     try {
       const response = await fetch(`${WORKER_URL}/inventory`)
       const data = await response.json()
-      setInventory(data.inventory || [])
+      const normalizedInventory = ensureInventoryShape(data.inventory || [])
+      setInventory(normalizedInventory)
     } catch (error) {
       console.error('Failed to load inventory:', error)
     }
@@ -33,13 +99,14 @@ function App() {
 
   const saveInventory = async (newInventory) => {
     try {
+      const normalizedInventory = ensureInventoryShape(newInventory)
       const response = await fetch(`${WORKER_URL}/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory: newInventory })
+        body: JSON.stringify({ inventory: normalizedInventory })
       })
       if (response.ok) {
-        setInventory(newInventory)
+        setInventory(normalizedInventory)
         setEditingInventory(false)
       }
     } catch (error) {
@@ -103,8 +170,7 @@ function App() {
   }
 
   const addInventoryItem = () => {
-    const newItem = { name: '', quantity: '', unit: 'oz' }
-    setInventory([...inventory, newItem])
+    setInventory([...inventory, createEmptyInventoryItem()])
   }
 
   const updateInventoryItem = (index, field, value) => {
@@ -363,90 +429,147 @@ function App() {
               </div>
             ) : (
               <div>
-                {inventory.map((item, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: 'flex',
-                      gap: '12px',
-                      alignItems: 'center',
-                      padding: '12px',
-                      background: '#f9fafb',
-                      borderRadius: '8px',
-                      marginBottom: '8px'
-                    }}
-                  >
-                    {editingInventory ? (
-                      <>
-                        <input
-                          type="text"
-                          value={item.name}
-                          onChange={(e) => updateInventoryItem(idx, 'name', e.target.value)}
-                          placeholder="Item name"
-                          style={{
-                            flex: 2,
-                            padding: '8px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '14px'
-                          }}
-                        />
-                        <input
-                          type="number"
-                          value={item.quantity}
-                          onChange={(e) => updateInventoryItem(idx, 'quantity', e.target.value)}
-                          placeholder="Qty"
-                          style={{
-                            flex: 1,
-                            padding: '8px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '14px'
-                          }}
-                        />
-                        <select
-                          value={item.unit}
-                          onChange={(e) => updateInventoryItem(idx, 'unit', e.target.value)}
-                          style={{
-                            flex: 1,
-                            padding: '8px',
-                            borderRadius: '6px',
-                            border: '1px solid #d1d5db',
-                            fontSize: '14px'
-                          }}
-                        >
-                          <option value="oz">oz</option>
-                          <option value="ml">ml</option>
-                          <option value="bottle">bottle</option>
-                          <option value="cup">cup</option>
-                          <option value="tsp">tsp</option>
-                          <option value="tbsp">tbsp</option>
-                        </select>
-                        <button
-                          onClick={() => removeInventoryItem(idx)}
-                          style={{
-                            background: '#ef4444',
-                            color: 'white',
-                            border: 'none',
-                            padding: '8px 12px',
-                            borderRadius: '6px',
-                            cursor: 'pointer',
-                            fontSize: '14px'
-                          }}
-                        >
-                          ✕
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span style={{ flex: 2, fontSize: '14px' }}>{item.name}</span>
-                        <span style={{ flex: 1, fontSize: '14px', color: '#666' }}>
-                          {item.quantity} {item.unit}
-                        </span>
-                      </>
-                    )}
-                  </div>
-                ))}
+                {inventory.map((item, idx) => {
+                  const typeOptions = item.type && !SPIRIT_TYPES.includes(item.type)
+                    ? [item.type, ...SPIRIT_TYPES]
+                    : SPIRIT_TYPES
+
+                  return (
+                    <div
+                      key={idx}
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '12px',
+                        padding: '12px',
+                        background: '#f9fafb',
+                        borderRadius: '8px',
+                        marginBottom: '8px'
+                      }}
+                    >
+                      {editingInventory ? (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                            <div style={{ flex: '1 1 150px', minWidth: '140px' }}>
+                              <label style={fieldLabelStyle}>Type</label>
+                              <select
+                                value={item.type}
+                                onChange={(e) => updateInventoryItem(idx, 'type', e.target.value)}
+                                style={fieldInputStyle}
+                              >
+                                {typeOptions.map((type) => (
+                                  <option key={type} value={type}>
+                                    {type}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                            <div style={{ flex: '2 1 240px', minWidth: '200px' }}>
+                              <label style={fieldLabelStyle}>Name</label>
+                              <input
+                                type="text"
+                                value={item.name}
+                                onChange={(e) => updateInventoryItem(idx, 'name', e.target.value)}
+                                placeholder="Bottle name"
+                                style={fieldInputStyle}
+                              />
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                            <div style={{ flex: '1 1 120px', minWidth: '120px' }}>
+                              <label style={fieldLabelStyle}>Proof</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.proof}
+                                onChange={(e) => updateInventoryItem(idx, 'proof', e.target.value)}
+                                placeholder="e.g. 80"
+                                style={fieldInputStyle}
+                              />
+                            </div>
+                            <div style={{ flex: '1 1 150px', minWidth: '140px' }}>
+                              <label style={fieldLabelStyle}>Bottle Size (ml)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                value={item.bottleSizeMl}
+                                onChange={(e) => updateInventoryItem(idx, 'bottleSizeMl', e.target.value)}
+                                placeholder="e.g. 750"
+                                style={fieldInputStyle}
+                              />
+                            </div>
+                            <div style={{ flex: '1 1 150px', minWidth: '140px' }}>
+                              <label style={fieldLabelStyle}>Amount Remaining (ml)</label>
+                              <input
+                                type="number"
+                                min="0"
+                                step="any"
+                                value={item.amountRemaining}
+                                onChange={(e) => updateInventoryItem(idx, 'amountRemaining', e.target.value)}
+                                placeholder="e.g. 300"
+                                style={fieldInputStyle}
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label style={fieldLabelStyle}>Flavor Notes</label>
+                            <textarea
+                              value={item.flavorNotes}
+                              onChange={(e) => updateInventoryItem(idx, 'flavorNotes', e.target.value)}
+                              placeholder="Tasting notes, cocktail uses, etc."
+                              rows={3}
+                              style={{ ...fieldInputStyle, resize: 'vertical' }}
+                            />
+                          </div>
+
+                          <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                            <button
+                              onClick={() => removeInventoryItem(idx)}
+                              style={{
+                                background: '#ef4444',
+                                color: 'white',
+                                border: 'none',
+                                padding: '8px 12px',
+                                borderRadius: '6px',
+                                cursor: 'pointer',
+                                fontSize: '14px'
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ fontWeight: 600, fontSize: '15px' }}>
+                            {item.name || 'Unnamed Bottle'}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                            {item.type || 'Type not set'}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                            {item.proof ? `Proof: ${item.proof}` : 'Proof not set'}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                            {item.bottleSizeMl ? `Bottle size: ${item.bottleSizeMl} ml` : 'Bottle size not set'}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                            {item.amountRemaining
+                              ? `Remaining: ${item.amountRemaining} ml`
+                              : 'Amount remaining not set'}
+                          </div>
+                          {item.flavorNotes && (
+                            <div style={{ fontSize: '13px', color: '#374151' }}>
+                              Notes: {item.flavorNotes}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
                 
                 {editingInventory && (
                   <button
