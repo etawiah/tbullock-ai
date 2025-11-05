@@ -214,7 +214,12 @@ function App() {
   }
 
   const addInventoryItem = () => {
-    setInventory([...inventory, createEmptyInventoryItem()])
+    const newItem = createEmptyInventoryItem()
+    setInventory([...inventory, newItem])
+    // Clear search query so new item is visible
+    setSearchQuery('')
+    // Expand the section where new item is added (Vodka by default)
+    setCollapsedTypes(prev => ({ ...prev, [newItem.type]: false }))
   }
 
   const updateInventoryItem = (index, field, value) => {
@@ -229,7 +234,10 @@ function App() {
   }
 
   const toggleTypeCollapse = (type) => {
-    setCollapsedTypes(prev => ({ ...prev, [type]: !prev[type] }))
+    setCollapsedTypes(prev => {
+      const currentState = prev[type] !== false // true if collapsed or undefined
+      return { ...prev, [type]: currentState ? false : true }
+    })
   }
 
   // Group inventory by type and apply search filter
@@ -519,7 +527,8 @@ function App() {
               <div>
                 {/* Grouped by Type */}
                 {Object.entries(getGroupedInventory()).map(([type, items]) => {
-                  const isCollapsed = collapsedTypes[type]
+                  // Default to collapsed (true) if not explicitly set
+                  const isCollapsed = collapsedTypes[type] !== false
 
                   return (
                     <div key={type} style={{ marginBottom: '16px' }}>
