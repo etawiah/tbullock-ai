@@ -24,8 +24,22 @@ export default {
         });
       }
 
-      // Route: Save inventory
+      // Route: Save inventory (requires PIN)
       if (url.pathname === '/api/inventory' && request.method === 'POST') {
+        // Check for PIN in header
+        const providedPin = request.headers.get('x-inventory-pin');
+        const requiredPin = env.INVENTORY_WRITE_PIN;
+
+        if (!providedPin || !requiredPin || providedPin !== requiredPin) {
+          return new Response(
+            JSON.stringify({ error: 'Forbidden: Invalid or missing PIN' }),
+            {
+              status: 403,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
         const { inventory } = await request.json();
         await env.BARTENDER_KV.put('inventory', JSON.stringify(inventory));
         return new Response(JSON.stringify({ success: true }), {
