@@ -19,7 +19,9 @@
       "Bash(wrangler pages project create:*)",
       "Bash(node scripts/convert-csv-to-inventory.js:*)",
       "Bash(curl:*)",
-      "Bash(wrangler deployments:*)"
+      "Bash(wrangler deployments:*)",
+      "Bash(cat:*)",
+      "Bash(wrangler kv key delete:*)"
     ],
     "deny": [],
     "ask": []
