@@ -52,7 +52,7 @@ export default {
               const prompt = `Provide a brief (2-3 sentence) flavor profile for "${item.name}" ${item.type}. Focus on tasting notes, aroma, and best uses in cocktails. Be concise and specific.`;
 
               const geminiResponse = await fetch(
-                `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${env.GEMINI_API_KEY}`,
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`,
                 {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -152,7 +152,7 @@ Glass: [type]
 
         // Call Gemini API
         const geminiResponse = await fetch(
-          `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${env.GEMINI_API_KEY}`,
+          `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
