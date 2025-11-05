@@ -215,11 +215,10 @@ function App() {
 
   const addInventoryItem = () => {
     const newItem = createEmptyInventoryItem()
-    setInventory([...inventory, newItem])
+    // Add new item at the beginning so it appears at the top
+    setInventory([newItem, ...inventory])
     // Clear search query so new item is visible
     setSearchQuery('')
-    // Expand the section where new item is added (Vodka by default)
-    setCollapsedTypes(prev => ({ ...prev, [newItem.type]: false }))
   }
 
   const updateInventoryItem = (index, field, value) => {
@@ -241,6 +240,7 @@ function App() {
   }
 
   // Group inventory by type and apply search filter
+  // Separate new/unsaved items (no name) from grouped items
   const getGroupedInventory = () => {
     const filtered = inventory.filter(item => {
       if (!searchQuery) return true
@@ -252,14 +252,23 @@ function App() {
       )
     })
 
+    const newItems = []
     const grouped = {}
+
     filtered.forEach((item, index) => {
-      const type = item.type || 'Other'
-      if (!grouped[type]) grouped[type] = []
-      grouped[type].push({ ...item, originalIndex: inventory.indexOf(item) })
+      const originalIndex = inventory.indexOf(item)
+
+      // New items (no name) should appear ungrouped at the top
+      if (!item.name || item.name.trim() === '') {
+        newItems.push({ ...item, originalIndex })
+      } else {
+        const type = item.type || 'Other'
+        if (!grouped[type]) grouped[type] = []
+        grouped[type].push({ ...item, originalIndex })
+      }
     })
 
-    return grouped
+    return { newItems, grouped }
   }
 
   return (
@@ -525,47 +534,34 @@ function App() {
               </div>
             ) : (
               <div>
-                {/* Grouped by Type */}
-                {Object.entries(getGroupedInventory()).map(([type, items]) => {
-                  // Default to collapsed (true) if not explicitly set
-                  const isCollapsed = collapsedTypes[type] !== false
+                {(() => {
+                  const { newItems, grouped } = getGroupedInventory()
 
                   return (
-                    <div key={type} style={{ marginBottom: '16px' }}>
-                      {/* Type Header */}
-                      <div
-                        onClick={() => toggleTypeCollapse(type)}
-                        style={{
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          padding: '12px 16px',
-                          background: '#667eea',
-                          color: 'white',
-                          borderRadius: '8px',
-                          cursor: 'pointer',
-                          userSelect: 'none',
-                          marginBottom: '8px'
-                        }}
-                      >
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                          <span style={{ fontSize: '18px', fontWeight: '600' }}>
-                            {isCollapsed ? '▶' : '▼'}
-                          </span>
-                          <span style={{ fontSize: '16px', fontWeight: '600' }}>{type}</span>
-                          <span style={{
-                            fontSize: '14px',
-                            background: 'rgba(255,255,255,0.2)',
-                            padding: '2px 8px',
-                            borderRadius: '12px'
+                    <>
+                      {/* New/Unsaved Items - Show at top when editing */}
+                      {editingInventory && newItems.length > 0 && (
+                        <div style={{ marginBottom: '16px' }}>
+                          <div style={{
+                            padding: '12px 16px',
+                            background: '#f59e0b',
+                            color: 'white',
+                            borderRadius: '8px',
+                            marginBottom: '8px'
                           }}>
-                            {items.length}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Items in this type */}
-                      {!isCollapsed && items.map((item) => {
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <span style={{ fontSize: '16px', fontWeight: '600' }}>✏️ New Items</span>
+                              <span style={{
+                                fontSize: '14px',
+                                background: 'rgba(255,255,255,0.2)',
+                                padding: '2px 8px',
+                                borderRadius: '12px'
+                              }}>
+                                {newItems.length}
+                              </span>
+                            </div>
+                          </div>
+                          {newItems.map((item) => {
                         const idx = item.originalIndex
                         const typeOptions = item.type && !SPIRIT_TYPES.includes(item.type)
                           ? [item.type, ...SPIRIT_TYPES]
@@ -707,9 +703,197 @@ function App() {
                     </div>
                   )
                 })}
-                      </div>
-                    )
-                  })}
+                        </div>
+                      )}
+
+                      {/* Grouped by Type */}
+                      {Object.entries(grouped).map(([type, items]) => {
+                        // Default to collapsed (true) if not explicitly set
+                        const isCollapsed = collapsedTypes[type] !== false
+
+                        return (
+                          <div key={type} style={{ marginBottom: '16px' }}>
+                            {/* Type Header */}
+                            <div
+                              onClick={() => toggleTypeCollapse(type)}
+                              style={{
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                padding: '12px 16px',
+                                background: '#667eea',
+                                color: 'white',
+                                borderRadius: '8px',
+                                cursor: 'pointer',
+                                userSelect: 'none',
+                                marginBottom: '8px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <span style={{ fontSize: '18px', fontWeight: '600' }}>
+                                  {isCollapsed ? '▶' : '▼'}
+                                </span>
+                                <span style={{ fontSize: '16px', fontWeight: '600' }}>{type}</span>
+                                <span style={{
+                                  fontSize: '14px',
+                                  background: 'rgba(255,255,255,0.2)',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px'
+                                }}>
+                                  {items.length}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Items in this type */}
+                            {!isCollapsed && items.map((item) => {
+                              const idx = item.originalIndex
+                              const typeOptions = item.type && !SPIRIT_TYPES.includes(item.type)
+                                ? [item.type, ...SPIRIT_TYPES]
+                                : SPIRIT_TYPES
+
+                              return (
+                          <div
+                            key={idx}
+                            style={{
+                              display: 'flex',
+                              flexDirection: 'column',
+                              gap: '12px',
+                              padding: '12px',
+                              background: '#f9fafb',
+                              borderRadius: '8px',
+                              marginBottom: '8px'
+                            }}
+                          >
+                            {editingInventory ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                  <div style={{ flex: '1 1 150px', minWidth: '140px' }}>
+                                    <label style={fieldLabelStyle}>Type</label>
+                                    <select
+                                      value={item.type}
+                                      onChange={(e) => updateInventoryItem(idx, 'type', e.target.value)}
+                                      style={fieldInputStyle}
+                                    >
+                                      {typeOptions.map((type) => (
+                                        <option key={type} value={type}>
+                                          {type}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </div>
+                                  <div style={{ flex: '2 1 240px', minWidth: '200px' }}>
+                                    <label style={fieldLabelStyle}>Name</label>
+                                    <input
+                                      type="text"
+                                      value={item.name}
+                                      onChange={(e) => updateInventoryItem(idx, 'name', e.target.value)}
+                                      placeholder="Bottle name"
+                                      style={fieldInputStyle}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
+                                  <div style={{ flex: '1 1 120px', minWidth: '120px' }}>
+                                    <label style={fieldLabelStyle}>Proof</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item.proof}
+                                      onChange={(e) => updateInventoryItem(idx, 'proof', e.target.value)}
+                                      placeholder="e.g. 80"
+                                      style={fieldInputStyle}
+                                    />
+                                  </div>
+                                  <div style={{ flex: '1 1 150px', minWidth: '140px' }}>
+                                    <label style={fieldLabelStyle}>Bottle Size (ml)</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      value={item.bottleSizeMl}
+                                      onChange={(e) => updateInventoryItem(idx, 'bottleSizeMl', e.target.value)}
+                                      placeholder="e.g. 750"
+                                      style={fieldInputStyle}
+                                    />
+                                  </div>
+                                  <div style={{ flex: '1 1 150px', minWidth: '140px' }}>
+                                    <label style={fieldLabelStyle}>Amount Remaining (ml)</label>
+                                    <input
+                                      type="number"
+                                      min="0"
+                                      step="any"
+                                      value={item.amountRemaining}
+                                      onChange={(e) => updateInventoryItem(idx, 'amountRemaining', e.target.value)}
+                                      placeholder="e.g. 300"
+                                      style={fieldInputStyle}
+                                    />
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <label style={fieldLabelStyle}>Flavor Notes</label>
+                                  <textarea
+                                    value={item.flavorNotes}
+                                    onChange={(e) => updateInventoryItem(idx, 'flavorNotes', e.target.value)}
+                                    placeholder="Tasting notes, cocktail uses, etc."
+                                    rows={3}
+                                    style={{ ...fieldInputStyle, resize: 'vertical' }}
+                                  />
+                                </div>
+
+                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                                  <button
+                                    onClick={() => removeInventoryItem(idx)}
+                                    style={{
+                                      background: '#ef4444',
+                                      color: 'white',
+                                      border: 'none',
+                                      padding: '8px 12px',
+                                      borderRadius: '6px',
+                                      cursor: 'pointer',
+                                      fontSize: '14px'
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ fontWeight: 600, fontSize: '15px' }}>
+                                  {item.name || 'Unnamed Bottle'}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                                  {item.type || 'Type not set'}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                                  {item.proof ? `Proof: ${item.proof}` : 'Proof not set'}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                                  {item.bottleSizeMl ? `Bottle size: ${item.bottleSizeMl} ml` : 'Bottle size not set'}
+                                </div>
+                                <div style={{ fontSize: '13px', color: '#4b5563' }}>
+                                  {item.amountRemaining
+                                    ? `Remaining: ${item.amountRemaining} ml`
+                                    : 'Amount remaining not set'}
+                                </div>
+                                {item.flavorNotes && (
+                                  <div style={{ fontSize: '13px', color: '#374151' }}>
+                                    Notes: {item.flavorNotes}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                          </div>
+                        )
+                      })}
+                    </>
+                  )
+                })()}
 
                 {editingInventory && (
                   <button
