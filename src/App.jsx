@@ -15,6 +15,14 @@ const SPIRIT_TYPES = [
   'Liqueur',
   'Aperitif',
   'Digestif',
+  'Wine',
+  'Vermouth',
+  'Beer',
+  'Mixer',
+  'Syrup',
+  'Bitters',
+  'Garnish',
+  'Tool',
   'Other'
 ]
 

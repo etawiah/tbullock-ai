@@ -114,28 +114,33 @@ ${inventory.length > 0
 
 INSTRUCTIONS:
 1. When suggesting drinks, ALWAYS cross-reference Amount Remaining (ml) and highlight if an ingredient is low or missing.
-2. If a recipe uses items from the bar, calculate whether the remaining ml covers the recipe and call out any shortages.
-3. When the user says they made a drink, list the milliliter amounts to subtract so they can update the inventory manually.
-4. Provide exact measurements and clear instructions.
-5. Suggest alternatives when ingredients are low or missing.
-6. Be friendly, conversational, and enthusiastic about drinks.
+2. Include Tools and Garnishes in suggestions - mention specific tools/garnishes they have or recommend ones to get.
+3. If a recipe uses items from the bar, calculate whether the remaining ml covers the recipe and call out any shortages.
+4. After giving a recipe, ALWAYS ask: "Did you make this drink? Let me know so I can update your inventory!"
+5. When user confirms they made a drink (e.g., "yes", "I made 2", "yes but used pineapple instead of OJ"):
+   - Calculate ingredient amounts used (multiply by number of servings if specified)
+   - Account for any substitutions they mention
+   - Respond with: "Great! I'll update your inventory:"
+   - Then add a special marker: [INVENTORY_UPDATE] followed by JSON with format:
+     [INVENTORY_UPDATE]{"updates":[{"name":"Whiskey","subtract":60},{"name":"Vermouth","subtract":30}]}
+6. Provide exact measurements and clear instructions.
 7. For batch recipes (e.g., "for 4 people"), scale ingredients proportionally.
+8. Suggest garnishes and tools from their inventory when possible.
 
 Example format for drink recipes:
 Drink: [Drink Name]
 Ingredients:
 - X oz [ingredient] (Available: Y ml)
-- X oz [ingredient] (Available: Y ml)
+Tools: [mention tools they have or need]
+Garnish: [mention garnishes they have or suggest]
 
 Instructions:
 1. Step by step
 2. Clear method
-3. Garnish suggestion
-
-Inventory impact:
-- Subtract Z ml [ingredient]
 
 Glass: [type]
+
+Did you make this drink? Let me know so I can update your inventory!
 `;
 
         // Build conversation history for context
@@ -187,13 +192,53 @@ Glass: [type]
         }
 
         const geminiData = await geminiResponse.json();
-        const aiResponse = geminiData.candidates[0].content.parts[0].text;
+        let aiResponse = geminiData.candidates[0].content.parts[0].text;
 
         // Check if AI is indicating inventory should be updated
-        // (In a more sophisticated version, you could parse this)
-        return new Response(JSON.stringify({ 
-          response: aiResponse,
-          // updatedInventory: null // Could implement auto-update here
+        let updatedInventory = null;
+        const updateMarker = '[INVENTORY_UPDATE]';
+
+        if (aiResponse.includes(updateMarker)) {
+          try {
+            // Extract the inventory update JSON
+            const markerIndex = aiResponse.indexOf(updateMarker);
+            const jsonStart = markerIndex + updateMarker.length;
+            const jsonEnd = aiResponse.indexOf('}', jsonStart) + 1;
+            const updateJson = aiResponse.substring(jsonStart, jsonEnd);
+            const updateData = JSON.parse(updateJson);
+
+            // Remove the marker and JSON from the user-facing response
+            aiResponse = aiResponse.substring(0, markerIndex) + aiResponse.substring(jsonEnd);
+
+            // Apply updates to inventory
+            updatedInventory = inventory.map(item => {
+              const update = updateData.updates.find(u =>
+                item.name.toLowerCase().includes(u.name.toLowerCase()) ||
+                u.name.toLowerCase().includes(item.name.toLowerCase())
+              );
+
+              if (update && update.subtract) {
+                const currentAmount = parseFloat(item.amountRemaining) || 0;
+                const newAmount = Math.max(0, currentAmount - update.subtract);
+                return { ...item, amountRemaining: String(newAmount) };
+              }
+
+              return item;
+            });
+
+            // Save updated inventory to KV
+            if (updatedInventory) {
+              await env.BARTENDER_KV.put('inventory', JSON.stringify(updatedInventory));
+            }
+          } catch (error) {
+            console.error('Error parsing inventory update:', error);
+            // If parsing fails, just continue without updating
+          }
+        }
+
+        return new Response(JSON.stringify({
+          response: aiResponse.trim(),
+          updatedInventory: updatedInventory
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

@@ -49,12 +49,25 @@ function calculateRemainingAmount(bottleSizeMl, amountStr) {
 }
 
 // Map spirit types to standardized names
-function mapSpiritType(type) {
+function mapSpiritType(section, type) {
   if (!type) return 'Other';
 
   type = type.trim();
 
-  // Direct matches
+  // Section-based categorization
+  if (section === 'Wines & Aperitifs') {
+    if (type.includes('Dry') || type.includes('Sweet')) return 'Vermouth';
+    return 'Wine';
+  }
+
+  if (section === 'Beer') return 'Beer';
+  if (section === 'Mixers & Non-Alcoholic') return 'Mixer';
+  if (section === 'Fresh & Garnishes') return 'Garnish';
+  if (section === 'Syrups') return 'Syrup';
+  if (section === 'Bitters') return 'Bitters';
+  if (section === 'Tools & Equipment') return 'Tool';
+
+  // Spirits - Direct matches
   const typeMap = {
     'Vodka': 'Vodka',
     'Cognac': 'Cognac',
@@ -88,21 +101,46 @@ function mapSpiritType(type) {
 // Convert CSV records to app inventory format
 const inventory = records
   .filter(record => {
-    // Only include Spirits and Liqueurs sections
     const section = record.Section || '';
-    return section === 'Spirits' || section === 'Liqueurs & Specialty';
+    const name = record.Name || '';
+    // Include all relevant sections, exclude empty rows
+    return name.trim() !== '' && (
+      section === 'Spirits' ||
+      section === 'Liqueurs & Specialty' ||
+      section === 'Wines & Aperitifs' ||
+      section === 'Beer' ||
+      section === 'Mixers & Non-Alcoholic' ||
+      section === 'Fresh & Garnishes' ||
+      section === 'Syrups' ||
+      section === 'Bitters' ||
+      section === 'Tools & Equipment'
+    );
   })
   .map(record => {
+    const section = record.Section || '';
     const bottleSizeMl = parseBottleSize(record['Bottle Size']);
     const amountRemaining = calculateRemainingAmount(bottleSizeMl, record['Amount Remaining']);
+    const notes = record.Notes || '';
+
+    // For garnishes, check "In Stock" from Notes column
+    let inStock = true;
+    let additionalNotes = '';
+    if (section === 'Fresh & Garnishes' && notes) {
+      inStock = notes.toLowerCase().includes('yes');
+      additionalNotes = notes.replace(/In Stock: (Yes|No)\.?\s*/i, '').trim();
+    }
+
+    // For tools, they're either there or not (no quantity)
+    const isAvailable = section === 'Tools & Equipment' ? true : (inStock || amountRemaining !== '');
 
     return {
-      type: mapSpiritType(record.Type),
+      type: mapSpiritType(section, record.Type),
       name: record.Name || 'Unnamed',
       proof: record['ABV % (normalized)'] ? String(Math.round(parseFloat(record['ABV % (normalized)']) * 2)) : '',
       bottleSizeMl: bottleSizeMl,
-      amountRemaining: amountRemaining,
-      flavorNotes: record['Flavor Notes / Profile'] || ''
+      amountRemaining: section === 'Tools & Equipment' ? '' : (section === 'Fresh & Garnishes' && inStock ? 'In Stock' : amountRemaining),
+      flavorNotes: record['Flavor Notes / Profile'] || additionalNotes || '',
+      available: isAvailable
     };
   })
   .filter(item => item.name !== 'Unnamed'); // Remove any invalid entries

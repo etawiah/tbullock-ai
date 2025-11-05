@@ -5,7 +5,8 @@
     "proof": "80",
     "bottleSizeMl": "",
     "amountRemaining": "",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Cognac",
@@ -13,7 +14,8 @@
     "proof": "80",
     "bottleSizeMl": "700",
     "amountRemaining": "700",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Whiskey",
@@ -21,7 +23,8 @@
     "proof": "90",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Rum",
@@ -29,7 +32,8 @@
     "proof": "90",
     "bottleSizeMl": "750",
     "amountRemaining": "563",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Scotch",
@@ -37,7 +41,8 @@
     "proof": "80",
     "bottleSizeMl": "750",
     "amountRemaining": "188",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Scotch",
@@ -45,7 +50,8 @@
     "proof": "80",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": "Sweet, Subtle, Smoke"
+    "flavorNotes": "Sweet, Subtle, Smoke",
+    "available": true
   },
   {
     "type": "Whiskey",
@@ -53,7 +59,8 @@
     "proof": "90",
     "bottleSizeMl": "1000",
     "amountRemaining": "500",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Scotch",
@@ -61,7 +68,8 @@
     "proof": "90",
     "bottleSizeMl": "750",
     "amountRemaining": "188",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Whiskey",
@@ -69,7 +77,8 @@
     "proof": "200",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Whiskey",
@@ -77,7 +86,8 @@
     "proof": "190",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Whiskey",
@@ -85,7 +95,8 @@
     "proof": "200",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Scotch",
@@ -93,7 +104,8 @@
     "proof": "80",
     "bottleSizeMl": "750",
     "amountRemaining": "563",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Scotch",
@@ -101,7 +113,8 @@
     "proof": "80",
     "bottleSizeMl": "1000",
     "amountRemaining": "1000",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Whiskey",
@@ -109,7 +122,8 @@
     "proof": "200",
     "bottleSizeMl": "1750",
     "amountRemaining": "1313",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Gin",
@@ -117,7 +131,8 @@
     "proof": "180",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Tequila",
@@ -125,7 +140,8 @@
     "proof": "160",
     "bottleSizeMl": "1750",
     "amountRemaining": "875",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Tequila",
@@ -133,7 +149,8 @@
     "proof": "160",
     "bottleSizeMl": "750",
     "amountRemaining": "563",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Tequila",
@@ -141,7 +158,8 @@
     "proof": "160",
     "bottleSizeMl": "750",
     "amountRemaining": "188",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Gin",
@@ -149,7 +167,8 @@
     "proof": "80",
     "bottleSizeMl": "1750",
     "amountRemaining": "1750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Tequila",
@@ -157,7 +176,8 @@
     "proof": "160",
     "bottleSizeMl": "750",
     "amountRemaining": "375",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Gin",
@@ -165,7 +185,8 @@
     "proof": "190",
     "bottleSizeMl": "750",
     "amountRemaining": "375",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Brandy",
@@ -173,7 +194,8 @@
     "proof": "160",
     "bottleSizeMl": "1750",
     "amountRemaining": "1313",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Brandy",
@@ -181,7 +203,8 @@
     "proof": "160",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -189,7 +212,8 @@
     "proof": "40",
     "bottleSizeMl": "1750",
     "amountRemaining": "438",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -197,7 +221,8 @@
     "proof": "60",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": "Black Currant"
+    "flavorNotes": "Black Currant",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -205,7 +230,8 @@
     "proof": "60",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Aperitif",
@@ -213,7 +239,8 @@
     "proof": "110",
     "bottleSizeMl": "750",
     "amountRemaining": "563",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -221,7 +248,8 @@
     "proof": "70",
     "bottleSizeMl": "375",
     "amountRemaining": "281",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -229,7 +257,8 @@
     "proof": "80",
     "bottleSizeMl": "750",
     "amountRemaining": "563",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -237,7 +266,8 @@
     "proof": "60",
     "bottleSizeMl": "1000",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -245,7 +275,8 @@
     "proof": "60",
     "bottleSizeMl": "500",
     "amountRemaining": "375",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -253,7 +284,8 @@
     "proof": "200",
     "bottleSizeMl": "750",
     "amountRemaining": "750",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
   },
   {
     "type": "Liqueur",
@@ -261,6 +293,439 @@
     "proof": "40",
     "bottleSizeMl": "750",
     "amountRemaining": "375",
-    "flavorNotes": ""
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Tribuno Extra Dry Vermouth",
+    "proof": "32",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Tribuno Sweet Vermouth",
+    "proof": "32",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Balic Huckleberry Wine",
+    "proof": "24",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Balic Alexander The Great",
+    "proof": "24",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Balic Pomegranate Wine",
+    "proof": "24",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Balic Cranberry Wine",
+    "proof": "24",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Wine",
+    "name": "Apothic Merlot",
+    "proof": "28",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Wine",
+    "name": "Dark Horse Cabernet Sauvignon",
+    "proof": "28",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Wine",
+    "name": "Il Casato - Friuli",
+    "proof": "24",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Vermouth",
+    "name": "Bellini Cipriani",
+    "proof": "11",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Beer",
+    "name": "Amstel Light",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Beer",
+    "name": "Yuengling",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Coke",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Pepsi",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "7-Up",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Cherry Coke",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Dr. Pepper",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Sprite",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Fever Tree Premium Ginger Beer",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Canada Dry Ginger Ale",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Whiskey Sour Mix",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Triple Sec Syrup",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Fee Foam, non egg",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Rose's Grenadine Syrup",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Rose's Sweetened Lime Juice",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Mixer",
+    "name": "Pineapple Ginger not from concentrate",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Garnish",
+    "name": "Orange",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": false
+  },
+  {
+    "type": "Garnish",
+    "name": "Strawberry",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": false
+  },
+  {
+    "type": "Garnish",
+    "name": "Piineapple",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": false
+  },
+  {
+    "type": "Garnish",
+    "name": "Salt",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "In Stock",
+    "flavorNotes": "Glass rim",
+    "available": true
+  },
+  {
+    "type": "Garnish",
+    "name": "Sugar",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "In Stock",
+    "flavorNotes": "Glass rim",
+    "available": true
+  },
+  {
+    "type": "Garnish",
+    "name": "Taijin",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "In Stock",
+    "flavorNotes": "Glass rim",
+    "available": true
+  },
+  {
+    "type": "Garnish",
+    "name": "Ginger",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "In Stock",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Garnish",
+    "name": "Maraschino Cherries",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "In Stock",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Syrup",
+    "name": "Rose's Grenadine Syrup",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Syrup",
+    "name": "Master of Mixes Simple Syrup",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Syrup",
+    "name": "Strawberry Simple Syrup",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Bitters",
+    "name": "Angostura Orange Bitters",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Bitters",
+    "name": "Blood Orange Juice Bitters",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Cocktail Shaker",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "4 Prong Strainer",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Julep Strainer",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Liquor Pourer",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Free Flow Liquor Pourer",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Classic Jigger",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Muddler",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Bar spoon",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
+  },
+  {
+    "type": "Tool",
+    "name": "Mixing glass",
+    "proof": "",
+    "bottleSizeMl": "",
+    "amountRemaining": "",
+    "flavorNotes": "",
+    "available": true
   }
 ]
