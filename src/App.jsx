@@ -66,6 +66,7 @@ function App() {
   const [inventory, setInventory] = useState([])
   const [showInventory, setShowInventory] = useState(false)
   const [editingInventory, setEditingInventory] = useState(false)
+  const [showTomInfo, setShowTomInfo] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [collapsedTypes, setCollapsedTypes] = useState({})
   const messagesEndRef = useRef(null)
@@ -293,10 +294,47 @@ function App() {
         alignItems: 'center'
       }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '24px' }}>🍹 Tom Bullock</h1>
+          <button
+            type="button"
+            onClick={() => setShowTomInfo(prev => !prev)}
+            style={{
+              margin: 0,
+              padding: 0,
+              fontSize: '24px',
+              fontWeight: 700,
+              color: '#1f2937',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px'
+            }}
+            aria-expanded={showTomInfo}
+            aria-controls="tom-bullock-info"
+          >
+            <span role="img" aria-hidden="true">🍹</span>
+            <span>Tom Bullock</span>
+          </button>
           <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
             Home AI personal mixologist
           </p>
+          {showTomInfo && (
+            <div
+              id="tom-bullock-info"
+              style={{
+                marginTop: '12px',
+                background: '#f3f4f6',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '13px',
+                lineHeight: 1.5,
+                color: '#374151'
+              }}
+            >
+              <strong>Who is Tom Bullock?</strong> Tom Bullock (1872–1964) was an influential American bartender and the first African American to publish a cocktail book, titled "The Ideal Bartender." Born in Louisville, Kentucky, to a former slave and a Union Army veteran, he worked at prestigious clubs like the Pendennis Club and the St. Louis Country Club. His 1917 book is one of the last cocktail manuals released before Prohibition, preserving a unique snapshot of pre-Prohibition recipes and American drinking culture.
+            </div>
+          )}
         </div>
         <button
           onClick={() => setShowInventory(!showInventory)}
