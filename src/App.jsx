@@ -1687,8 +1687,15 @@ function App() {
                                 <input
                                   type="number"
                                   min="0"
-                                  value={item.bottleSizeMl}
-                                  onChange={(e) => updateInventoryItem(idx, 'bottleSizeMl', e.target.value)}
+                                  value={convertFromMl(
+                                    item.bottleSizeMl,
+                                    itemUnits[`${idx}-bottle`] || 'ml'
+                                  )}
+                                  onChange={(e) => {
+                                    const unit = itemUnits[`${idx}-bottle`] || 'ml'
+                                    const mlValue = convertToMl(e.target.value, unit)
+                                    updateInventoryItem(idx, 'bottleSizeMl', mlValue)
+                                  }}
                                   placeholder="e.g. 750"
                                   style={{ ...fieldInputStyle, flex: 1 }}
                                 />
@@ -1697,8 +1704,6 @@ function App() {
                                   onChange={(e) => {
                                     const newUnit = e.target.value
                                     setItemUnits({ ...itemUnits, [`${idx}-bottle`]: newUnit })
-                                    const converted = convertFromMl(item.bottleSizeMl, newUnit)
-                                    updateInventoryItem(idx, 'bottleSizeMl', converted)
                                   }}
                                   style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}
                                 >
@@ -1715,8 +1720,15 @@ function App() {
                                   type="number"
                                   min="0"
                                   step="any"
-                                  value={item.amountRemaining}
-                                  onChange={(e) => updateInventoryItem(idx, 'amountRemaining', e.target.value)}
+                                  value={convertFromMl(
+                                    item.amountRemaining,
+                                    itemUnits[`${idx}-remaining`] || 'ml'
+                                  )}
+                                  onChange={(e) => {
+                                    const unit = itemUnits[`${idx}-remaining`] || 'ml'
+                                    const mlValue = convertToMl(e.target.value, unit)
+                                    updateInventoryItem(idx, 'amountRemaining', mlValue)
+                                  }}
                                   placeholder="e.g. 300"
                                   style={{ ...fieldInputStyle, flex: 1 }}
                                 />
@@ -1725,8 +1737,6 @@ function App() {
                                   onChange={(e) => {
                                     const newUnit = e.target.value
                                     setItemUnits({ ...itemUnits, [`${idx}-remaining`]: newUnit })
-                                    const converted = convertFromMl(item.amountRemaining, newUnit)
-                                    updateInventoryItem(idx, 'amountRemaining', converted)
                                   }}
                                   style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}
                                 >
@@ -1991,8 +2001,12 @@ function App() {
                                       <input
                                         type="number"
                                         min="0"
-                                        value={item.bottleSizeMl}
-                                        onChange={(e) => updateInventoryItem(idx, 'bottleSizeMl', e.target.value)}
+                                        value={convertFromMl(item.bottleSizeMl, itemUnits[`${idx}-bottle`] || 'ml')}
+                                        onChange={(e) => {
+                                          const unit = itemUnits[`${idx}-bottle`] || 'ml'
+                                          const mlValue = convertToMl(e.target.value, unit)
+                                          updateInventoryItem(idx, 'bottleSizeMl', mlValue)
+                                        }}
                                         placeholder="e.g. 750"
                                         style={{ ...fieldInputStyle, flex: 1 }}
                                       />
@@ -2001,8 +2015,6 @@ function App() {
                                         onChange={(e) => {
                                           const newUnit = e.target.value
                                           setItemUnits({ ...itemUnits, [`${idx}-bottle`]: newUnit })
-                                          const converted = convertFromMl(item.bottleSizeMl, newUnit)
-                                          updateInventoryItem(idx, 'bottleSizeMl', converted)
                                         }}
                                         style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}
                                       >
@@ -2019,8 +2031,12 @@ function App() {
                                         type="number"
                                         min="0"
                                         step="any"
-                                        value={item.amountRemaining}
-                                        onChange={(e) => updateInventoryItem(idx, 'amountRemaining', e.target.value)}
+                                        value={convertFromMl(item.amountRemaining, itemUnits[`${idx}-remaining`] || 'ml')}
+                                        onChange={(e) => {
+                                          const unit = itemUnits[`${idx}-remaining`] || 'ml'
+                                          const mlValue = convertToMl(e.target.value, unit)
+                                          updateInventoryItem(idx, 'amountRemaining', mlValue)
+                                        }}
                                         placeholder="e.g. 300"
                                         style={{ ...fieldInputStyle, flex: 1 }}
                                       />
@@ -2029,8 +2045,6 @@ function App() {
                                         onChange={(e) => {
                                           const newUnit = e.target.value
                                           setItemUnits({ ...itemUnits, [`${idx}-remaining`]: newUnit })
-                                          const converted = convertFromMl(item.amountRemaining, newUnit)
-                                          updateInventoryItem(idx, 'amountRemaining', converted)
                                         }}
                                         style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '12px' }}
                                       >
