@@ -59,6 +59,27 @@ const normalizeInventoryItem = (item) => {
 
 const ensureInventoryShape = (items = []) => items.map(normalizeInventoryItem)
 
+const normalizeSearchText = (value) => {
+  if (!value) return ''
+  return String(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+const buildItemSearchText = (item) => {
+  const parts = [
+    item.name,
+    item.type,
+    item.flavorNotes,
+    item.proof,
+    item.bottleSizeMl,
+    item.amountRemaining
+  ]
+  return normalizeSearchText(parts.filter(Boolean).join(' '))
+}
+
 function App() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
@@ -281,14 +302,14 @@ function App() {
   // Group inventory by type and apply search filter
   // Separate new/unsaved items (no name) from grouped items
   const getGroupedInventory = () => {
+    const normalizedQuery = normalizeSearchText(searchQuery)
+    const queryTokens = normalizedQuery ? normalizedQuery.split(' ') : []
+
     const filtered = inventory.filter(item => {
-      if (!searchQuery) return true
-      const query = searchQuery.toLowerCase()
-      return (
-        item.name.toLowerCase().includes(query) ||
-        item.type.toLowerCase().includes(query) ||
-        (item.flavorNotes && item.flavorNotes.toLowerCase().includes(query))
-      )
+      if (queryTokens.length === 0) return true
+      const searchableText = buildItemSearchText(item)
+      if (!searchableText) return false
+      return queryTokens.every(token => searchableText.includes(token))
     })
 
     const newItems = []
