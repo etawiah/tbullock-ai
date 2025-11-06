@@ -1,0 +1,183 @@
+[
+  {
+    "id": 1,
+    "name": "Cucumber-Basil Martini",
+    "ingredients": [
+      { "name": "Vodka", "amount": "2.5", "unit": "oz" },
+      { "name": "Elderflower Liqueur", "amount": "0.5", "unit": "oz" }
+    ],
+    "instructions": "1. Infuse vodka with cucumber and basil\n2. Stir with ice until well-chilled\n3. Strain into a chilled martini glass",
+    "glass": "Martini",
+    "garnish": "Thin cucumber ribbon",
+    "tags": "vodka, martini, craft",
+    "created": 1700000001000
+  },
+  {
+    "id": 2,
+    "name": "Blood Orange Cosmo",
+    "ingredients": [
+      { "name": "Vodka", "amount": "1.5", "unit": "oz" },
+      { "name": "Triple Sec", "amount": "1", "unit": "oz" },
+      { "name": "Lime Juice", "amount": "0.5", "unit": "oz" },
+      { "name": "Blood Orange Juice", "amount": "0.5", "unit": "oz" }
+    ],
+    "instructions": "1. Add all ingredients to shaker with ice\n2. Shake vigorously for 15 seconds\n3. Strain into a chilled martini glass",
+    "glass": "Martini",
+    "garnish": "Flamed orange peel",
+    "tags": "vodka, cosmo, citrus",
+    "created": 1700000002000
+  },
+  {
+    "id": 3,
+    "name": "Pineapple-Ginger Mojito",
+    "ingredients": [
+      { "name": "White Rum", "amount": "2", "unit": "oz" },
+      { "name": "Lime Juice", "amount": "1", "unit": "oz" },
+      { "name": "Sugar", "amount": "2", "unit": "tsp" },
+      { "name": "Mint Leaves", "amount": "5", "unit": "dash" },
+      { "name": "Pineapple Juice", "amount": "2", "unit": "oz" },
+      { "name": "Fresh Ginger", "amount": "1", "unit": "dash" },
+      { "name": "Soda Water", "amount": "60", "unit": "ml" }
+    ],
+    "instructions": "1. Muddle mint, sugar, and ginger in glass\n2. Add rum, lime juice, and pineapple juice\n3. Fill with ice\n4. Top with soda water and stir gently",
+    "glass": "Highball",
+    "garnish": "Pineapple wedge and mint sprig",
+    "tags": "rum, mojito, tropical",
+    "created": 1700000003000
+  },
+  {
+    "id": 4,
+    "name": "Smoked Coconut Daiquiri",
+    "ingredients": [
+      { "name": "White Rum", "amount": "2", "unit": "oz" },
+      { "name": "Lime Juice", "amount": "0.75", "unit": "oz" },
+      { "name": "Smoked Simple Syrup", "amount": "0.5", "unit": "oz" },
+      { "name": "Coconut Water", "amount": "0.5", "unit": "oz" }
+    ],
+    "instructions": "1. Add all ingredients to shaker with ice\n2. Shake vigorously for 15 seconds\n3. Strain into coupe glass",
+    "glass": "Coupe",
+    "garnish": "Toasted coconut rim",
+    "tags": "rum, daiquiri, tropical, smoked",
+    "created": 1700000004000
+  },
+  {
+    "id": 5,
+    "name": "Spicy Jalapeño Margarita",
+    "ingredients": [
+      { "name": "Tequila", "amount": "2", "unit": "oz" },
+      { "name": "Triple Sec", "amount": "1", "unit": "oz" },
+      { "name": "Lime Juice", "amount": "1", "unit": "oz" },
+      { "name": "Jalapeño Slices", "amount": "2", "unit": "dash" }
+    ],
+    "instructions": "1. Muddle jalapeño with lime juice\n2. Add tequila and triple sec\n3. Shake with ice\n4. Strain over ice in a Tajín-rimmed glass",
+    "glass": "Rocks",
+    "garnish": "Jalapeño slice and Tajín rim",
+    "tags": "tequila, margarita, spicy",
+    "created": 1700000005000
+  },
+  {
+    "id": 6,
+    "name": "Blood Orange Paloma",
+    "ingredients": [
+      { "name": "Tequila", "amount": "2", "unit": "oz" },
+      { "name": "Blood Orange Juice", "amount": "2", "unit": "oz" },
+      { "name": "Club Soda", "amount": "2", "unit": "oz" },
+      { "name": "Lime Juice", "amount": "0.25", "unit": "oz" },
+      { "name": "Chili Sugar", "amount": "1", "unit": "dash" }
+    ],
+    "instructions": "1. Build in glass over ice\n2. Add tequila, blood orange juice, and lime\n3. Top with club soda\n4. Gently stir\n5. Sprinkle chili sugar on top",
+    "glass": "Highball",
+    "garnish": "Grapefruit wedge and chili salt rim",
+    "tags": "tequila, paloma, citrus",
+    "created": 1700000006000
+  },
+  {
+    "id": 7,
+    "name": "Elderflower Negroni",
+    "ingredients": [
+      { "name": "Gin", "amount": "1", "unit": "oz" },
+      { "name": "Elderflower Liqueur", "amount": "1", "unit": "oz" },
+      { "name": "Sweet Vermouth", "amount": "1", "unit": "oz" }
+    ],
+    "instructions": "1. Add all ingredients to mixing glass with ice\n2. Stir for 30 seconds\n3. Strain over a large ice cube in rocks glass",
+    "glass": "Rocks",
+    "garnish": "Lavender sprig or orange twist",
+    "tags": "gin, negroni, craft, stirred",
+    "created": 1700000007000
+  },
+  {
+    "id": 8,
+    "name": "Cucumber Collins",
+    "ingredients": [
+      { "name": "Gin", "amount": "2", "unit": "oz" },
+      { "name": "Lemon Juice", "amount": "1", "unit": "oz" },
+      { "name": "Simple Syrup", "amount": "0.5", "unit": "oz" },
+      { "name": "Cucumber Slices", "amount": "3", "unit": "dash" },
+      { "name": "Basil Leaf", "amount": "1", "unit": "dash" },
+      { "name": "Tonic Water", "amount": "90", "unit": "ml" }
+    ],
+    "instructions": "1. Muddle cucumber slices in shaker\n2. Add gin, lemon juice, and simple syrup\n3. Shake with ice\n4. Strain into Collins glass with ice\n5. Top with tonic water",
+    "glass": "Collins",
+    "garnish": "Cucumber ribbon and basil leaf",
+    "tags": "gin, collins, refreshing",
+    "created": 1700000008000
+  },
+  {
+    "id": 9,
+    "name": "Smoked Maple Old Fashioned",
+    "ingredients": [
+      { "name": "Bourbon", "amount": "2", "unit": "oz" },
+      { "name": "Maple Syrup", "amount": "0.25", "unit": "oz" },
+      { "name": "Angostura Bitters", "amount": "2", "unit": "dash" }
+    ],
+    "instructions": "1. Smoke glass with oak wood\n2. Add maple syrup and bitters to glass\n3. Add bourbon and ice\n4. Stir for 30 seconds\n5. Add large ice cube",
+    "glass": "Rocks",
+    "garnish": "Orange peel and cherry skewer",
+    "tags": "whiskey, old fashioned, smoked, classic",
+    "created": 1700000009000
+  },
+  {
+    "id": 10,
+    "name": "New York Sour",
+    "ingredients": [
+      { "name": "Whiskey", "amount": "2", "unit": "oz" },
+      { "name": "Lemon Juice", "amount": "0.75", "unit": "oz" },
+      { "name": "Simple Syrup", "amount": "0.5", "unit": "oz" },
+      { "name": "Red Wine", "amount": "0.5", "unit": "oz" }
+    ],
+    "instructions": "1. Shake whiskey, lemon juice, and simple syrup with ice\n2. Strain over ice in rocks glass\n3. Carefully float red wine on top by pouring over back of spoon",
+    "glass": "Rocks",
+    "garnish": "Lemon wheel",
+    "tags": "whiskey, sour, wine, classic",
+    "created": 1700000010000
+  },
+  {
+    "id": 11,
+    "name": "Smoked Old Fashioned",
+    "ingredients": [
+      { "name": "Bourbon", "amount": "2", "unit": "oz" },
+      { "name": "Smoked Maple Syrup", "amount": "0.25", "unit": "oz" },
+      { "name": "Angostura Bitters", "amount": "2", "unit": "dash" }
+    ],
+    "instructions": "1. Smoke glass with oak wood chip\n2. Add smoked maple syrup and bitters\n3. Add bourbon\n4. Stir with ice cube for 30 seconds",
+    "glass": "Rocks",
+    "garnish": "Orange peel and cherry skewer",
+    "tags": "bourbon, old fashioned, smoked, signature",
+    "created": 1700000011000
+  },
+  {
+    "id": 12,
+    "name": "Pineapple-Ginger Mule",
+    "ingredients": [
+      { "name": "Vodka", "amount": "2", "unit": "oz" },
+      { "name": "Lime Juice", "amount": "0.5", "unit": "oz" },
+      { "name": "Ginger Beer", "amount": "4", "unit": "oz" },
+      { "name": "Pineapple Juice", "amount": "1", "unit": "oz" }
+    ],
+    "instructions": "1. Build in copper mug with ice\n2. Add vodka, lime juice, and pineapple juice\n3. Top with ginger beer\n4. Stir gently",
+    "glass": "Copper Mug",
+    "garnish": "Candied ginger and mint sprig",
+    "tags": "vodka, mule, tropical, signature",
+    "created": 1700000012000
+  }
+]

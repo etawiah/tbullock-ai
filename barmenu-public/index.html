@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Purple Moonz - Signature Cocktail Menu</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Georgia', 'Times New Roman', serif;
+      background: linear-gradient(135deg, #1a0033 0%, #2d1b4e 50%, #4a2472 100%);
+      color: #f0e6ff;
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.05);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      padding: 40px;
+      box-shadow: 0 8px 32px rgba(138, 43, 226, 0.3);
+      border: 1px solid rgba(186, 104, 200, 0.2);
+    }
+
+    .header {
+      text-align: center;
+      margin-bottom: 40px;
+      padding-bottom: 30px;
+      border-bottom: 2px solid rgba(186, 104, 200, 0.3);
+    }
+
+    .bar-name {
+      font-size: 3em;
+      font-weight: 700;
+      background: linear-gradient(135deg, #ba68c8, #9c27b0, #7b1fa2);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 10px;
+      text-shadow: 0 0 30px rgba(186, 104, 200, 0.5);
+      letter-spacing: 2px;
+    }
+
+    .moon-icon {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .subtitle {
+      font-size: 1.2em;
+      color: #ce93d8;
+      font-style: italic;
+      margin-top: 10px;
+    }
+
+    .intro {
+      text-align: center;
+      font-size: 1.1em;
+      color: #e1bee7;
+      margin-bottom: 40px;
+      font-style: italic;
+    }
+
+    .category {
+      margin-bottom: 40px;
+    }
+
+    .category-header {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 20px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid rgba(186, 104, 200, 0.2);
+    }
+
+    .category-icon {
+      font-size: 2em;
+    }
+
+    .category-name {
+      font-size: 1.8em;
+      font-weight: 600;
+      color: #ba68c8;
+    }
+
+    .drink {
+      margin-bottom: 20px;
+      padding: 15px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 10px;
+      border-left: 3px solid #9c27b0;
+      transition: all 0.3s ease;
+    }
+
+    .drink:hover {
+      background: rgba(186, 104, 200, 0.1);
+      transform: translateX(5px);
+    }
+
+    .drink-name {
+      font-size: 1.3em;
+      font-weight: 700;
+      color: #e1bee7;
+      margin-bottom: 8px;
+    }
+
+    .drink-description {
+      color: #ce93d8;
+      font-size: 1em;
+      font-style: italic;
+    }
+
+    .separator {
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(186, 104, 200, 0.3), transparent);
+      margin: 30px 0;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 50px;
+      padding-top: 30px;
+      border-top: 1px solid rgba(186, 104, 200, 0.2);
+      color: #ba68c8;
+      font-size: 0.9em;
+    }
+
+    @media (max-width: 768px) {
+      .container {
+        padding: 25px;
+      }
+
+      .bar-name {
+        font-size: 2em;
+      }
+
+      .moon-icon {
+        font-size: 2em;
+      }
+
+      .category-name {
+        font-size: 1.4em;
+      }
+
+      .drink-name {
+        font-size: 1.1em;
+      }
+    }
+
+    /* Subtle animation */
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-10px); }
+    }
+
+    .moon-icon {
+      animation: float 3s ease-in-out infinite;
+      display: inline-block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="moon-icon">🌙</div>
+      <h1 class="bar-name">PURPLE MOONZ</h1>
+      <p class="subtitle">Signature Cocktail Menu</p>
+    </div>
+
+    <p class="intro">
+      Enjoy a curated list of craft cocktails served at your personal bar.
+    </p>
+
+    <!-- Vodka -->
+    <div class="category">
+      <div class="category-header">
+        <span class="category-icon">🥂</span>
+        <h2 class="category-name">Vodka</h2>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Cucumber-Basil Martini</div>
+        <div class="drink-description">Vodka, cucumber, basil, elderflower.</div>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Blood Orange Cosmo</div>
+        <div class="drink-description">Vodka, blood orange, lime, triple sec.</div>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <!-- Rum -->
+    <div class="category">
+      <div class="category-header">
+        <span class="category-icon">🏝️</span>
+        <h2 class="category-name">Rum</h2>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Pineapple-Ginger Mojito</div>
+        <div class="drink-description">White rum, pineapple, mint, ginger, lime.</div>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Smoked Coconut Daiquiri</div>
+        <div class="drink-description">Rum, coconut water, lime, smoked syrup.</div>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <!-- Tequila -->
+    <div class="category">
+      <div class="category-header">
+        <span class="category-icon">🌮</span>
+        <h2 class="category-name">Tequila</h2>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Spicy Jalapeño Margarita</div>
+        <div class="drink-description">Tequila, jalapeño, lime, triple sec, Tajín rim.</div>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Blood Orange Paloma</div>
+        <div class="drink-description">Tequila, blood orange, soda, lime, chili sugar.</div>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <!-- Gin -->
+    <div class="category">
+      <div class="category-header">
+        <span class="category-icon">🌿</span>
+        <h2 class="category-name">Gin</h2>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Elderflower Negroni</div>
+        <div class="drink-description">Gin, elderflower, sweet vermouth.</div>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Cucumber Collins</div>
+        <div class="drink-description">Gin, cucumber, lemon, tonic, basil.</div>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <!-- Whiskey -->
+    <div class="category">
+      <div class="category-header">
+        <span class="category-icon">🥃</span>
+        <h2 class="category-name">Whiskey</h2>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Smoked Maple Old Fashioned</div>
+        <div class="drink-description">Whiskey, maple syrup, bitters.</div>
+      </div>
+      <div class="drink">
+        <div class="drink-name">New York Sour</div>
+        <div class="drink-description">Whiskey, lemon, syrup, red wine float.</div>
+      </div>
+    </div>
+
+    <div class="separator"></div>
+
+    <!-- Signature Additions -->
+    <div class="category">
+      <div class="category-header">
+        <span class="category-icon">🔥</span>
+        <h2 class="category-name">Signature Additions</h2>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Smoked Old Fashioned</div>
+        <div class="drink-description">Bourbon, smoked maple, bitters, orange peel.</div>
+      </div>
+      <div class="drink">
+        <div class="drink-name">Pineapple-Ginger Mule</div>
+        <div class="drink-description">Vodka, pineapple, lime, ginger beer, mint.</div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>🌙 Purple Moonz • Crafted with care 🍸</p>
+    </div>
+  </div>
+</body>
+</html>
