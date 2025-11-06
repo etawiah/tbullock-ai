@@ -2,6 +2,8 @@
 // Frontend (bartender.tawiah.net) is protected by Cloudflare Access
 // Worker endpoints trust authenticated requests from the protected frontend
 
+const flavorNotesCache = new Map();
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -41,19 +43,51 @@ export default {
       if (url.pathname === '/api/enrich-inventory' && request.method === 'POST') {
         const { inventory } = await request.json();
 
-        // Find items that need enrichment (missing flavor notes)
-        const itemsToEnrich = inventory.filter(item =>
-          item.name && !item.flavorNotes && item.type !== 'Other'
-        );
+        if (!Array.isArray(inventory)) {
+          return new Response(JSON.stringify({ inventory: [] }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
 
-        // Only enrich up to 5 items at a time to avoid rate limits
-        const enrichBatch = itemsToEnrich.slice(0, 5);
+        // Attach client indexes so we can re-map confidently
+        const indexedInventory = inventory.map((item, index) => ({ ...item, __index: index }));
 
-        // Enrich each item with Gemini API
-        const enrichedItems = await Promise.all(
-          enrichBatch.map(async (item) => {
-            try {
-              const prompt = `Provide a brief (2-3 sentence) flavor profile for "${item.name}" ${item.type}. Focus on tasting notes, aroma, and best uses in cocktails. Be concise and specific.`;
+        const itemsThatNeedNotes = indexedInventory.filter(item => {
+          const hasName = item.name && item.name.trim().length > 0;
+          const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0;
+          return hasName && !hasNotes;
+        });
+
+        if (itemsThatNeedNotes.length === 0) {
+          return new Response(JSON.stringify({ inventory }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+
+        // Only enrich up to 5 items per request to stay inside the free tier comfortably
+        const enrichBatch = itemsThatNeedNotes.slice(0, 5);
+
+        const enrichedItems = [];
+
+        for (const item of enrichBatch) {
+          try {
+            const keyParts = [
+              (item.type || '').toLowerCase(),
+              (item.name || '').toLowerCase(),
+              item.proof || '',
+              item.bottleSizeMl || ''
+            ];
+            const cacheKey = keyParts.join('|');
+
+            let flavorNotes = flavorNotesCache.get(cacheKey);
+
+            if (!flavorNotes) {
+              const friendlyName = item.name || 'this spirit';
+              const friendlyType = item.type || 'spirit';
+              const proofText = item.proof ? `${item.proof} proof` : 'proof unspecified';
+              const bottleText = item.bottleSizeMl ? `${item.bottleSizeMl} ml bottle` : 'bottle size unspecified';
+
+              const prompt = `Write two concise sentences (max 45 words total) describing the flavor profile for ${friendlyName}, a ${friendlyType} (${proofText}, ${bottleText}). Mention aroma, palate, and finish, and optionally suggest a classic cocktail style it shines in. No marketing fluff or bullet points.`;
 
               const geminiResponse = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${env.GEMINI_API_KEY}`,
@@ -66,29 +100,47 @@ export default {
                       parts: [{ text: prompt }]
                     }],
                     generationConfig: {
-                      temperature: 0.7,
-                      maxOutputTokens: 256,
+                      temperature: 0.6,
+                      maxOutputTokens: 160,
                     }
                   })
                 }
               );
 
-              if (geminiResponse.ok) {
-                const geminiData = await geminiResponse.json();
-                const flavorNotes = geminiData.candidates[0].content.parts[0].text.trim();
-                return { ...item, flavorNotes };
+              if (!geminiResponse.ok) {
+                throw new Error(`Gemini returned ${geminiResponse.status}`);
               }
-            } catch (error) {
-              console.error(`Failed to enrich ${item.name}:`, error);
-            }
-            return item;
-          })
-        );
 
-        // Merge enriched items back into inventory
-        const enrichedInventory = inventory.map(item => {
-          const enriched = enrichedItems.find(e => e.name === item.name);
-          return enriched || item;
+              const geminiData = await geminiResponse.json();
+              const candidate = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+              flavorNotes = (candidate || '').trim();
+
+              if (flavorNotes) {
+                // Keep cache from growing indefinitely
+                if (flavorNotesCache.size > 200) {
+                  flavorNotesCache.clear();
+                }
+                flavorNotesCache.set(cacheKey, flavorNotes);
+              }
+            }
+
+            if (flavorNotes) {
+              enrichedItems.push({ index: item.__index, flavorNotes });
+            }
+          } catch (error) {
+            console.error(`Failed to enrich ${item.name || 'item'}:`, error);
+          }
+        }
+
+        const enrichedInventory = indexedInventory.map(item => {
+          const enriched = enrichedItems.find(e => e.index === item.__index);
+          if (enriched) {
+            const { __index, ...rest } = item;
+            return { ...rest, flavorNotes: enriched.flavorNotes };
+          }
+
+          const { __index, ...rest } = item;
+          return rest;
         });
 
         return new Response(JSON.stringify({ inventory: enrichedInventory }), {

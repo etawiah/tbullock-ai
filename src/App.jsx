@@ -69,6 +69,9 @@ function App() {
   const [showTomInfo, setShowTomInfo] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [collapsedTypes, setCollapsedTypes] = useState({})
+  const [savingInventory, setSavingInventory] = useState(false)
+  const [generatingNotes, setGeneratingNotes] = useState(false)
+  const [noteStatus, setNoteStatus] = useState('')
   const messagesEndRef = useRef(null)
   const fieldLabelStyle = {
     display: 'block',
@@ -128,38 +131,70 @@ function App() {
   }
 
   const saveInventory = async (newInventory) => {
-    try {
-      const normalizedInventory = ensureInventoryShape(newInventory)
+    if (savingInventory) return
 
-      // First, enrich items with missing flavor notes
-      const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory: normalizedInventory })
+    setSavingInventory(true)
+    setNoteStatus('')
+
+    let normalizedInventory = ensureInventoryShape(newInventory)
+    let finalStatusMessage = ''
+
+    try {
+      const itemsMissingNotes = normalizedInventory.filter(item => {
+        const hasName = item.name && item.name.trim().length > 0
+        const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0
+        return hasName && !hasNotes
       })
 
       let enrichedInventory = normalizedInventory
-      if (enrichResponse.ok) {
-        const enrichData = await enrichResponse.json()
-        enrichedInventory = enrichData.inventory || normalizedInventory
+
+      if (itemsMissingNotes.length > 0) {
+        setGeneratingNotes(true)
+        finalStatusMessage = 'Crafting flavor notes with Gemini...'
+        setNoteStatus(finalStatusMessage)
+
+        const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inventory: normalizedInventory })
+        })
+
+        if (enrichResponse.ok) {
+          const enrichData = await enrichResponse.json()
+          const candidateInventory = enrichData.inventory || normalizedInventory
+          enrichedInventory = ensureInventoryShape(candidateInventory)
+          setInventory(enrichedInventory)
+          finalStatusMessage = 'Flavor notes added automatically. Feel free to tweak them before saving.'
+          setNoteStatus(finalStatusMessage)
+        } else {
+          finalStatusMessage = 'Could not generate flavor notes automatically. You can add them manually.'
+          setNoteStatus(finalStatusMessage)
+        }
       }
 
-      // Save the enriched inventory
+      // Save the enriched or original inventory
       const response = await fetch(`${WORKER_URL}/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ inventory: enrichedInventory })
       })
 
-      if (response.ok) {
-        setInventory(enrichedInventory)
-        setEditingInventory(false)
-      } else {
-        throw new Error('Failed to save')
+      if (!response.ok) {
+        throw new Error('Failed to save inventory')
+      }
+
+      setInventory(enrichedInventory)
+      setEditingInventory(false)
+      if (!finalStatusMessage) {
+        finalStatusMessage = 'Inventory saved.'
+        setNoteStatus(finalStatusMessage)
       }
     } catch (error) {
       console.error('Failed to save inventory:', error)
       alert('Failed to save inventory')
+    } finally {
+      setGeneratingNotes(false)
+      setSavingInventory(false)
     }
   }
 
@@ -486,10 +521,13 @@ function App() {
               <h2 style={{ margin: 0, fontSize: '20px' }}>Bar Inventory</h2>
               {!editingInventory ? (
                 <button
-                  onClick={() => setEditingInventory(true)}
-                  style={{
-                    background: '#667eea',
-                    color: 'white',
+                  onClick={() => {
+                    setEditingInventory(true)
+                    setNoteStatus('')
+                  }}
+                style={{
+                  background: '#667eea',
+                  color: 'white',
                     border: 'none',
                     padding: '8px 16px',
                     borderRadius: '8px',
@@ -500,38 +538,52 @@ function App() {
                   Edit
                 </button>
               ) : (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button
-                    onClick={() => saveInventory(inventory)}
-                    style={{
-                      background: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => {
-                      loadInventory()
-                      setEditingInventory(false)
-                    }}
-                    style={{
-                      background: '#ef4444',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Cancel
-                  </button>
+                <div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      onClick={() => saveInventory(inventory)}
+                      disabled={savingInventory}
+                      style={{
+                        background: savingInventory ? '#6ee7b7' : '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        cursor: savingInventory ? 'not-allowed' : 'pointer',
+                        fontSize: '14px',
+                        transition: 'background 0.2s ease'
+                      }}
+                    >
+                      {savingInventory ? 'Saving...' : 'Save'}
+                    </button>
+                    <button
+                      onClick={() => {
+                        loadInventory()
+                        setEditingInventory(false)
+                        setNoteStatus('')
+                      }}
+                      style={{
+                        background: '#ef4444',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px'
+                      }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                  {noteStatus && (
+                    <p style={{
+                      marginTop: '12px',
+                      fontSize: '13px',
+                      color: generatingNotes ? '#2563eb' : '#047857'
+                    }}>
+                      {noteStatus}
+                    </p>
+                  )}
                 </div>
               )}
             </div>
