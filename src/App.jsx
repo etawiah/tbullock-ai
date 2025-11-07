@@ -322,7 +322,7 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
 }
 
 // Recipe Card Component with Flexible Ingredient Matching
-function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake }) {
+function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList }) {
   const [expanded, setExpanded] = useState(false)
 
   // Check if we have all ingredients with flexible matching
@@ -413,6 +413,7 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake }) {
 
   const ingredientStatus = checkIngredients()
   const canMake = ingredientStatus.every(ing => ing.available)
+  const missingIngredients = ingredientStatus.filter(ing => !ing.available)
 
   const makeRecipe = () => {
     const updates = ingredientStatus
@@ -423,6 +424,17 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake }) {
       })
     onMake(updates)
     alert(`Made ${recipe.name}! Inventory updated.`)
+  }
+
+  const addMissingToShoppingList = () => {
+    missingIngredients.forEach(ing => {
+      onAddToShoppingList({
+        name: ing.name,
+        type: 'Recipe Ingredient',
+        amount: `${ing.amount} ${ing.unit}`
+      })
+    })
+    alert(`Added ${missingIngredients.length} missing ingredient(s) to shopping list!`)
   }
 
   return (
@@ -468,10 +480,10 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake }) {
         </>
       )}
 
-      <div style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
+      <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
         <button
           onClick={() => setExpanded(!expanded)}
-          style={{ flex: 1, padding: '8px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
+          style={{ flex: 1, minWidth: '120px', padding: '8px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
         >
           {expanded ? 'Hide Details' : 'Show Details'}
         </button>
@@ -480,6 +492,7 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake }) {
           disabled={!canMake}
           style={{
             flex: 1,
+            minWidth: '120px',
             padding: '8px',
             background: canMake ? '#10b981' : '#d1d5db',
             color: 'white',
@@ -492,6 +505,25 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake }) {
         >
           Make This Drink
         </button>
+        {missingIngredients.length > 0 && (
+          <button
+            onClick={addMissingToShoppingList}
+            style={{
+              flex: 1,
+              minWidth: '120px',
+              padding: '8px',
+              background: '#f59e0b',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
+          >
+            🛒 Add Missing ({missingIngredients.length})
+          </button>
+        )}
       </div>
     </div>
   )
@@ -548,77 +580,166 @@ function App() {
 
   const WORKER_URL = 'https://bartender-api.eugene-tawiah.workers.dev/api' // Cloudflare Worker endpoint
 
-  // Load inventory and recipes on mount
+  // Load all data on mount
   useEffect(() => {
     loadInventory()
-
-    const savedRecipes = localStorage.getItem('customRecipes')
-    if (savedRecipes) {
-      try {
-        setCustomRecipes(JSON.parse(savedRecipes))
-      } catch (error) {
-        console.error('Failed to load custom recipes:', error)
-      }
-    } else {
-      fetch('/initial-recipes.json')
-        .then(response => response.json())
-        .then(initialRecipes => {
-          setCustomRecipes(initialRecipes)
-          localStorage.setItem('customRecipes', JSON.stringify(initialRecipes))
-        })
-        .catch(error => {
-          console.error('Failed to load initial recipes:', error)
-        })
-    }
-
-    const savedFavorites = localStorage.getItem('favoriteRecipes')
-    if (savedFavorites) {
-      try {
-        setFavoriteRecipes(JSON.parse(savedFavorites))
-      } catch (error) {
-        console.error('Failed to load favorites:', error)
-      }
-    }
-
-    // Load shopping list
-    const savedShopping = localStorage.getItem('shoppingList')
-    if (savedShopping) {
-      try {
-        setShoppingList(JSON.parse(savedShopping))
-      } catch (error) {
-        console.error('Failed to load shopping list:', error)
-      }
-    }
-
-    // Load chat history
-    const savedMessages = localStorage.getItem('bartenderChatHistory')
-    if (savedMessages) {
-      try {
-        setMessages(JSON.parse(savedMessages))
-      } catch (error) {
-        console.error('Failed to load chat history:', error)
-      }
-    }
+    loadRecipes()
+    loadShopping()
+    loadFavorites()
+    loadChatHistory()
   }, [])
 
-  // Save recipes to localStorage
+  const loadRecipes = async () => {
+    try {
+      const response = await fetch(`${WORKER_URL}/recipes`)
+      const data = await response.json()
+      let recipesData = data.recipes || []
+
+      // If empty, load initial recipes
+      if (recipesData.length === 0) {
+        try {
+          const initialResponse = await fetch('/initial-recipes.json')
+          const initialData = await initialResponse.json()
+          recipesData = initialData || []
+          // Save initial recipes to backend
+          await fetch(`${WORKER_URL}/recipes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recipes: recipesData })
+          })
+        } catch (err) {
+          console.error('Failed to load initial recipes:', err)
+        }
+      }
+
+      setCustomRecipes(recipesData)
+    } catch (error) {
+      console.error('Failed to load recipes:', error)
+    }
+  }
+
+  const loadShopping = async () => {
+    try {
+      const response = await fetch(`${WORKER_URL}/shopping`)
+      const data = await response.json()
+      setShoppingList(data.shopping || [])
+    } catch (error) {
+      console.error('Failed to load shopping list:', error)
+    }
+  }
+
+  const loadFavorites = async () => {
+    try {
+      const response = await fetch(`${WORKER_URL}/favorites`)
+      const data = await response.json()
+      setFavoriteRecipes(data.favorites || [])
+    } catch (error) {
+      console.error('Failed to load favorites:', error)
+    }
+  }
+
+  const loadChatHistory = async () => {
+    try {
+      const response = await fetch(`${WORKER_URL}/chat-history`)
+      const data = await response.json()
+      setMessages(data.chatHistory || [])
+    } catch (error) {
+      console.error('Failed to load chat history:', error)
+    }
+  }
+
+  // Save functions
+  const saveRecipes = async (recipes) => {
+    try {
+      await fetch(`${WORKER_URL}/recipes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipes })
+      })
+    } catch (error) {
+      console.error('Failed to save recipes:', error)
+    }
+  }
+
+  const saveShopping = async (shopping) => {
+    try {
+      await fetch(`${WORKER_URL}/shopping`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shopping })
+      })
+    } catch (error) {
+      console.error('Failed to save shopping list:', error)
+    }
+  }
+
+  const saveFavorites = async (favorites) => {
+    try {
+      await fetch(`${WORKER_URL}/favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ favorites })
+      })
+    } catch (error) {
+      console.error('Failed to save favorites:', error)
+    }
+  }
+
+  const saveChatHistory = async (chatHistory) => {
+    try {
+      await fetch(`${WORKER_URL}/chat-history`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chatHistory })
+      })
+    } catch (error) {
+      console.error('Failed to save chat history:', error)
+    }
+  }
+
+  // Save recipes to backend
   useEffect(() => {
     if (customRecipes.length > 0) {
-      localStorage.setItem('customRecipes', JSON.stringify(customRecipes))
+      saveRecipes(customRecipes)
     }
   }, [customRecipes])
 
-  // Save shopping list to localStorage
+  // Save shopping list to backend
   useEffect(() => {
-    if (shoppingList.length > 0) {
-      localStorage.setItem('shoppingList', JSON.stringify(shoppingList))
-    }
+    saveShopping(shoppingList)
   }, [shoppingList])
 
-  // Save chat messages to localStorage
+  // Auto-remove shopping list items when they appear in inventory
+  useEffect(() => {
+    if (shoppingList.length === 0 || inventory.length === 0) return
+
+    const itemsToRemove = shoppingList.filter(shopItem => {
+      // Check if this shopping list item now exists in inventory
+      return inventory.some(invItem => {
+        const shopNameLower = shopItem.name.toLowerCase().trim()
+        const invNameLower = invItem.name.toLowerCase().trim()
+        const invTypeLower = (invItem.type || '').toLowerCase().trim()
+
+        // Match by exact name or by type (for generic ingredients like "Vodka")
+        return invNameLower.includes(shopNameLower) ||
+               shopNameLower.includes(invNameLower) ||
+               invTypeLower === shopNameLower
+      })
+    })
+
+    if (itemsToRemove.length > 0) {
+      const updatedList = shoppingList.filter(shopItem =>
+        !itemsToRemove.some(removed => removed.name === shopItem.name)
+      )
+      setShoppingList(updatedList)
+      console.log(`Auto-removed ${itemsToRemove.length} item(s) from shopping list (now in inventory)`)
+    }
+  }, [inventory, shoppingList])
+
+  // Save chat messages to backend
   useEffect(() => {
     if (messages.length > 0) {
-      localStorage.setItem('bartenderChatHistory', JSON.stringify(messages))
+      saveChatHistory(messages)
     }
   }, [messages])
 
@@ -941,14 +1062,15 @@ function App() {
 
   // Shopping List Functions
   const addToShoppingList = (item) => {
-    if (shoppingList.some(i => i.name === item.name)) {
-      alert('Already in shopping list')
+    if (shoppingList.some(i => i.name.toLowerCase() === item.name.toLowerCase())) {
+      // Already exists - skip silently
       return
     }
     setShoppingList([...shoppingList, {
       name: item.name,
-      type: item.type,
-      size: item.bottleSizeMl,
+      type: item.type || 'Recipe Ingredient',
+      size: item.bottleSizeMl || item.size,
+      amount: item.amount, // For recipe ingredients
       added: Date.now()
     }])
   }
@@ -1135,7 +1257,7 @@ function App() {
               fontWeight: currentView === 'recipes' ? '600' : '400'
             }}
           >
-            Recipes ({customRecipes.length})
+            Favorites ({customRecipes.length})
           </button>
         </div>
       </div>
@@ -1512,7 +1634,9 @@ function App() {
                     gap: isMobile ? '8px' : '0'
                   }}>
                     <span style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                      <strong>{item.name}</strong> ({item.type}) - {item.size}ml
+                      <strong>{item.name}</strong> ({item.type})
+                      {item.amount && ` - ${item.amount}`}
+                      {item.size && ` - ${item.size}ml`}
                     </span>
                     <button
                       onClick={() => setShoppingList(shoppingList.filter((_, i) => i !== idx))}
@@ -2238,7 +2362,7 @@ function App() {
               alignItems: 'center',
               marginBottom: '20px'
             }}>
-              <h2 style={{ margin: 0, fontSize: '20px' }}>Custom Recipes</h2>
+              <h2 style={{ margin: 0, fontSize: '20px' }}>Custom Recipes & Favorites</h2>
               {!creatingRecipe && !editingRecipe && (
                 <button
                   onClick={() => setCreatingRecipe(true)}
@@ -2283,6 +2407,7 @@ function App() {
                       onEdit={setEditingRecipe}
                       onDelete={deleteRecipe}
                       onMake={makeRecipe}
+                      onAddToShoppingList={addToShoppingList}
                     />
                   ))
                 )}
