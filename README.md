@@ -4,12 +4,12 @@ An AI-powered bartender that helps you create drinks, manage your bar inventory,
 
 ## ✨ Features
 
-- 💬 **Conversational AI Bartender** - Ask for drink recipes, suggestions, and mixing advice
-- 📦 **Inventory Tracking** - Keep track of what's in your bar
-- 🔄 **Smart Suggestions** - AI checks your inventory before suggesting drinks
-- 📱 **Mobile-Friendly** - Works great on phones and tablets
-- 🔒 **Private** - Your data stays in your Cloudflare KV storage
-- 💰 **100% Free** - Uses free tiers of Cloudflare and Google Gemini
+- 💬 **Unified Chat + Inventory Assistant** ? Gemini-powered bartender persona that remembers your conversations, inspects the live inventory, suggests swaps, scales batches, and subtracts ingredients when you make a drink.
+- 📈 **Rich Inventory Manager** ? Structured bottles with type/proof/size/amount, progress bars, quick ?oz adjustments, grouping & fuzzy search, CSV export, and low-stock shopping lists.
+- 🌟 **Custom Recipes & Favorites** ? Full recipe builder with inventory-aware ingredient matching (including flavored spirits), tagging, editing, and a Favorites tab for house signatures.
+- 🍹 **Automated Flavor Notes** ? Gemini enriches new bottles with tasting notes so entries stay descriptive with almost no manual copywriting.
+- 📜 **Menu Publishing** ? Public `menu.html` plus markdown/PDF assets so guests can browse your signature list without authenticating.
+- 🔒 **Polished & Secure Stack** ? Purple Moonz branding, swipe-friendly layout, cocktail favicon, Cloudflare Pages + Workers + KV behind Cloudflare Access, all inside the free tiers of Cloudflare and Google Gemini.
 
 ## 🎯 Demo
 
