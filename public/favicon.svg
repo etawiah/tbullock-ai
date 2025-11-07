@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title>Purple Moonz Cocktail Icon</title>
+  <desc>Minimal cocktail glass with a purple gradient fill</desc>
+  <defs>
+    <linearGradient id="drink" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#c084fc" />
+      <stop offset="100%" stop-color="#7c3aed" />
+    </linearGradient>
+    <linearGradient id="stem" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f3e8ff" />
+      <stop offset="100%" stop-color="#c4b5fd" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="#1f1147" />
+  <g transform="translate(32 20)">
+    <path d="M0 0h64l-6 10H6z" fill="url(#drink)" opacity="0.2" />
+    <path d="M0 0h64l-6 10H6z" stroke="#f3e8ff" stroke-width="6" fill="none" stroke-linejoin="round" />
+    <path d="M10 10h44l-20 32h-4z" fill="url(#drink)" />
+    <path d="M32 42v20" stroke="url(#stem)" stroke-width="6" stroke-linecap="round" />
+    <path d="M20 74h24" stroke="url(#stem)" stroke-width="6" stroke-linecap="round" />
+    <circle cx="50" cy="6" r="6" fill="#fbbf24" stroke="#fef3c7" stroke-width="3" />
+  </g>
+</svg>
