@@ -66,33 +66,34 @@ const getStockLevel = (current, total) => {
 }
 
 const SPIRIT_TYPES = [
-  'Vodka',
-  'Cognac',
-  'Whiskey',
-  'Rum',
-  'Scotch',
-  'Gin',
-  'Tequila',
-  'Brandy',
-  'Bourbon',
-  'Rye',
-  'Mezcal',
-  'Liqueur',
   'Aperitif',
-  'Digestif',
-  'Wine',
-  'Vermouth',
   'Beer',
-  'Mixer',
-  'Syrup',
   'Bitters',
+  'Bourbon',
+  'Brandy',
+  'Cognac',
+  'Digestif',
   'Garnish',
+  'Gin',
+  'Liqueur',
+  'Mezcal',
+  'Mixer',
+  'Rum',
+  'Rye',
+  'Scotch',
+  'Syrup',
+  'Tequila',
   'Tool',
+  'Vermouth',
+  'Vodka',
+  'Whiskey',
+  'Wine',
   'Other'
 ]
 
 const createEmptyInventoryItem = () => ({
-  type: SPIRIT_TYPES[0],
+  type: 'Vodka', // Default to Vodka as most common spirit
+  brand: '',
   name: '',
   proof: '',
   bottleSizeMl: '',
@@ -112,6 +113,7 @@ const normalizeInventoryItem = (item) => {
 
   return {
     type: SPIRIT_TYPES.includes(normalizedType) ? normalizedType : (normalizedType || 'Other'),
+    brand: item.brand ? String(item.brand) : '',
     name: item.name ? String(item.name) : '',
     proof: item.proof === 0 || item.proof ? String(item.proof) : '',
     bottleSizeMl: item.bottleSizeMl === 0 || item.bottleSizeMl ? String(item.bottleSizeMl) : '',
@@ -135,6 +137,7 @@ const normalizeSearchText = (value) => {
 
 const buildItemSearchText = (item) => {
   const parts = [
+    item.brand,
     item.name,
     item.type,
     item.flavorNotes,
@@ -153,6 +156,28 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
   const [glass, setGlass] = useState(recipe?.glass || '')
   const [garnish, setGarnish] = useState(recipe?.garnish || '')
   const [tags, setTags] = useState(recipe?.tags || '')
+
+  const inventoryOptions = (() => {
+    const seen = new Set()
+    return inventory
+      .map(item => {
+        const labelParts = []
+        if (item.brand) labelParts.push(item.brand)
+        if (item.name) labelParts.push(item.name)
+        const typeLabel = item.type ? ` (${item.type})` : ''
+        return {
+          value: item.name || '',
+          label: `${labelParts.join(' · ')}${typeLabel}`.trim() || item.name || 'Unnamed bottle'
+        }
+      })
+      .filter(option => {
+        const key = option.value.toLowerCase().trim()
+        if (!key || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
+  })()
 
   const addIngredient = () => {
     setIngredients([...ingredients, { name: '', amount: '', unit: 'ml' }])
@@ -215,16 +240,21 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
         <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Ingredients</label>
         {ingredients.map((ing, idx) => (
           <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-            <select
-              value={ing.name}
-              onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
-              style={{ flex: 2, padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
-            >
-              <option value="">Select ingredient...</option>
-              {inventory.map((item, i) => (
-                <option key={i} value={item.name}>{item.name} ({item.type})</option>
-              ))}
-            </select>
+            <div style={{ flex: 2, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <input
+                type="text"
+                list={`ingredient-options-${idx}`}
+                value={ing.name}
+                onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
+                placeholder="Start typing an ingredient..."
+                style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+              />
+              <datalist id={`ingredient-options-${idx}`}>
+                {inventoryOptions.map((option, optionIdx) => (
+                  <option key={`${option.value}-${optionIdx}`} value={option.value} label={option.label} />
+                ))}
+              </datalist>
+            </div>
             <input
               type="number"
               value={ing.amount}
@@ -321,6 +351,228 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
   )
 }
 
+// Add Inventory Item Modal Component
+function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAnother, onSaveAndClose, bottleUnit, remainingUnit, onBottleUnitChange, onRemainingUnitChange, isMobile, isGenerating }) {
+  if (!isOpen) return null
+
+  const fieldInputStyle = {
+    padding: isMobile ? '10px' : '8px',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    fontSize: isMobile ? '16px' : '14px',
+    width: '100%'
+  }
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      background: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 9999,
+      padding: '16px'
+    }}>
+      <div style={{
+        background: 'white',
+        borderRadius: '12px',
+        padding: isMobile ? '20px' : '24px',
+        maxWidth: '500px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
+      }}>
+        <h2 style={{ margin: '0 0 20px 0', fontSize: isMobile ? '20px' : '18px' }}>Add Inventory Item</h2>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Type */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Type *</label>
+            <select
+              value={item.type}
+              onChange={(e) => onUpdateItem('type', e.target.value)}
+              style={fieldInputStyle}
+            >
+              {SPIRIT_TYPES.map(type => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Brand */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Brand</label>
+            <input
+              type="text"
+              value={item.brand}
+              onChange={(e) => onUpdateItem('brand', e.target.value)}
+              placeholder="e.g. Absolut"
+              style={fieldInputStyle}
+            />
+          </div>
+
+          {/* Name */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Name *</label>
+            <input
+              type="text"
+              value={item.name}
+              onChange={(e) => onUpdateItem('name', e.target.value)}
+              placeholder="e.g. Grey Goose Vodka"
+              style={fieldInputStyle}
+              autoFocus
+            />
+          </div>
+
+          {/* Proof */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Proof</label>
+            <input
+              type="number"
+              min="0"
+              value={item.proof}
+              onChange={(e) => onUpdateItem('proof', e.target.value)}
+              placeholder="e.g. 80"
+              style={fieldInputStyle}
+            />
+          </div>
+
+          {/* Bottle Size */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Bottle Size</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="number"
+                min="0"
+                value={convertFromMl(item.bottleSizeMl, bottleUnit)}
+                onChange={(e) => {
+                  const mlValue = convertToMl(e.target.value, bottleUnit)
+                  onUpdateItem('bottleSizeMl', mlValue)
+                }}
+                placeholder="e.g. 750"
+                style={{ ...fieldInputStyle, flex: 1 }}
+              />
+              <select
+                value={bottleUnit}
+                onChange={(e) => onBottleUnitChange(e.target.value)}
+                style={{ ...fieldInputStyle, flex: '0 0 80px' }}
+              >
+                <option value="ml">ml</option>
+                <option value="oz">oz</option>
+                <option value="L">L</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Amount Remaining */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>Amount Remaining</label>
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={convertFromMl(item.amountRemaining, remainingUnit)}
+                onChange={(e) => {
+                  const mlValue = convertToMl(e.target.value, remainingUnit)
+                  onUpdateItem('amountRemaining', mlValue)
+                }}
+                placeholder="e.g. 750"
+                style={{ ...fieldInputStyle, flex: 1 }}
+              />
+              <select
+                value={remainingUnit}
+                onChange={(e) => onRemainingUnitChange(e.target.value)}
+                style={{ ...fieldInputStyle, flex: '0 0 80px' }}
+              >
+                <option value="ml">ml</option>
+                <option value="oz">oz</option>
+                <option value="L">L</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Flavor Notes */}
+          <div>
+            <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
+              Flavor Notes
+              {isGenerating && <span style={{ marginLeft: '8px', fontSize: '12px', color: '#667eea' }}>(AI generating...)</span>}
+            </label>
+            <textarea
+              value={item.flavorNotes}
+              onChange={(e) => onUpdateItem('flavorNotes', e.target.value)}
+              placeholder={isGenerating ? "AI is crafting flavor notes..." : "Tasting notes, cocktail uses, etc."}
+              rows={3}
+              style={{ ...fieldInputStyle, resize: 'vertical' }}
+              disabled={isGenerating}
+            />
+          </div>
+        </div>
+
+        {/* Buttons */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '24px', flexWrap: 'wrap' }}>
+          <button
+            onClick={onSaveAndAddAnother}
+            disabled={!item.name.trim()}
+            style={{
+              flex: 1,
+              minWidth: '140px',
+              padding: isMobile ? '12px' : '10px',
+              background: item.name.trim() ? '#667eea' : '#d1d5db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: item.name.trim() ? 'pointer' : 'not-allowed',
+              fontSize: isMobile ? '16px' : '14px',
+              fontWeight: '600'
+            }}
+          >
+            Save & Add Another
+          </button>
+          <button
+            onClick={onSaveAndClose}
+            disabled={!item.name.trim()}
+            style={{
+              flex: 1,
+              minWidth: '100px',
+              padding: isMobile ? '12px' : '10px',
+              background: item.name.trim() ? '#10b981' : '#d1d5db',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: item.name.trim() ? 'pointer' : 'not-allowed',
+              fontSize: isMobile ? '16px' : '14px',
+              fontWeight: '600'
+            }}
+          >
+            Done
+          </button>
+          <button
+            onClick={onClose}
+            style={{
+              flex: '0 0 auto',
+              padding: isMobile ? '12px 16px' : '10px 14px',
+              background: '#6b7280',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: isMobile ? '16px' : '14px'
+            }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // Recipe Card Component with Flexible Ingredient Matching
 function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList }) {
   const [expanded, setExpanded] = useState(false)
@@ -333,6 +585,7 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
       const invItem = inventory.find(item => {
         const itemNameLower = item.name.toLowerCase().trim()
         const itemTypeLower = (item.type || '').toLowerCase().trim()
+        const itemBrandLower = (item.brand || '').toLowerCase().trim()
 
         // Exact match (case-insensitive)
         if (itemNameLower === ingNameLower) {
@@ -371,7 +624,7 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
           if (itemTypeLower !== spiritType) return false
 
           // Then check if all flavor words are in the name or flavor notes
-          const combinedText = `${itemNameLower} ${(item.flavorNotes || '').toLowerCase()}`
+          const combinedText = `${itemNameLower} ${itemBrandLower} ${(item.flavorNotes || '').toLowerCase()}`
           const flavorWords = ingWords.filter(word => !baseSpirits.includes(word))
 
           return flavorWords.every(word => combinedText.includes(word))
@@ -382,8 +635,11 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
         // "Sugar" matches anything with "sugar"
         const recipeWords = ingNameLower.split(/\s+/).filter(w => w.length > 2)
 
+        const flavorNoteLower = (item.flavorNotes || '').toLowerCase()
         return recipeWords.every(word =>
-          itemNameLower.includes(word) || (item.flavorNotes || '').toLowerCase().includes(word)
+          itemNameLower.includes(word) ||
+          itemBrandLower.includes(word) ||
+          flavorNoteLower.includes(word)
         )
       })
 
@@ -395,7 +651,7 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
 
       if (isPantryItem) {
         // Pantry items don't need quantity tracking - if it exists, it's available
-        return { ...ing, available: true, remaining: 999999, matchedItem: invItem.name }
+        return { ...ing, available: true, remaining: 999999, matchedItem: invItem.name, matchedBrand: invItem.brand || '' }
       }
 
       // For spirits/liquids, check quantity
@@ -404,10 +660,10 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
 
       // If amount is not a number (empty, "In Stock", etc.), treat as available
       if (isNaN(remaining)) {
-        return { ...ing, available: true, remaining: 999999, matchedItem: invItem.name }
+        return { ...ing, available: true, remaining: 999999, matchedItem: invItem.name, matchedBrand: invItem.brand || '' }
       }
 
-      return { ...ing, available: remaining >= neededMl, remaining, matchedItem: invItem.name }
+      return { ...ing, available: remaining >= neededMl, remaining, matchedItem: invItem.name, matchedBrand: invItem.brand || '' }
     })
   }
 
@@ -430,6 +686,7 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
     missingIngredients.forEach(ing => {
       onAddToShoppingList({
         name: ing.name,
+        brand: ing.matchedBrand || '',
         type: 'Recipe Ingredient',
         amount: `${ing.amount} ${ing.unit}`
       })
@@ -555,6 +812,12 @@ function App() {
   const [selectedItems, setSelectedItems] = useState(new Set())
   const [itemUnits, setItemUnits] = useState({})
   const [favoriteRecipes, setFavoriteRecipes] = useState([])
+
+  // Add Item Modal state
+  const [addItemModalOpen, setAddItemModalOpen] = useState(false)
+  const [modalItem, setModalItem] = useState(createEmptyInventoryItem())
+  const [modalBottleUnit, setModalBottleUnit] = useState('ml')
+  const [modalRemainingUnit, setModalRemainingUnit] = useState('ml')
 
   // New UI/UX enhancement state
   const [shoppingList, setShoppingList] = useState([])
@@ -720,10 +983,13 @@ function App() {
         const invNameLower = invItem.name.toLowerCase().trim()
         const invTypeLower = (invItem.type || '').toLowerCase().trim()
 
-        // Match by exact name or by type (for generic ingredients like "Vodka")
-        return invNameLower.includes(shopNameLower) ||
-               shopNameLower.includes(invNameLower) ||
-               invTypeLower === shopNameLower
+        // Only auto-remove if there's a very close match:
+        // 1. Exact name match
+        // 2. Inventory name fully contains the shopping item name (e.g., "Grey Goose Vodka" contains "vodka")
+        // 3. Type matches exactly (for generic items like "Vodka")
+        return invNameLower === shopNameLower ||
+               (invNameLower.includes(shopNameLower) && shopNameLower.length > 5) ||
+               (invTypeLower === shopNameLower && shopNameLower.length > 3)
       })
     })
 
@@ -738,9 +1004,7 @@ function App() {
 
   // Save chat messages to backend
   useEffect(() => {
-    if (messages.length > 0) {
-      saveChatHistory(messages)
-    }
+    saveChatHistory(messages)
   }, [messages])
 
   // Mobile responsive resize handler
@@ -918,6 +1182,70 @@ function App() {
     setSearchQuery('')
   }
 
+  // Modal functions
+  const openAddItemModal = () => {
+    setModalItem(createEmptyInventoryItem())
+    setModalBottleUnit('ml')
+    setModalRemainingUnit('ml')
+    setAddItemModalOpen(true)
+  }
+
+  const closeAddItemModal = () => {
+    setAddItemModalOpen(false)
+    setModalItem(createEmptyInventoryItem())
+    setModalBottleUnit('ml')
+    setModalRemainingUnit('ml')
+  }
+
+  const saveModalItem = async () => {
+    // Add the item at the beginning so it appears at the top
+    const newInventory = [modalItem, ...inventory]
+
+    // Auto-generate flavor notes for the new item if it has a name but no notes
+    if (modalItem.name && modalItem.name.trim().length > 0 &&
+        (!modalItem.flavorNotes || modalItem.flavorNotes.trim().length === 0)) {
+      try {
+        setGeneratingNotes(true)
+        const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ inventory: newInventory })
+        })
+
+        if (enrichResponse.ok) {
+          const enrichData = await enrichResponse.json()
+          const enrichedInventory = ensureInventoryShape(enrichData.inventory || newInventory)
+          setInventory(enrichedInventory)
+          setGeneratingNotes(false)
+          return true
+        }
+      } catch (error) {
+        console.error('Failed to enrich new item:', error)
+      }
+      setGeneratingNotes(false)
+    }
+
+    setInventory(newInventory)
+    return true
+  }
+
+  const saveAndAddAnother = async () => {
+    await saveModalItem()
+    // Clear form for next item
+    setModalItem(createEmptyInventoryItem())
+    setModalBottleUnit('ml')
+    setModalRemainingUnit('ml')
+  }
+
+  const saveAndClose = async () => {
+    await saveModalItem()
+    closeAddItemModal()
+  }
+
+  const updateModalItem = (field, value) => {
+    setModalItem({ ...modalItem, [field]: value })
+  }
+
   const updateInventoryItem = (index, field, value) => {
     const newInventory = [...inventory]
     newInventory[index][field] = value
@@ -938,9 +1266,9 @@ function App() {
 
   // Export/Import Functions
   const exportToCSV = () => {
-    const headers = ['Type', 'Name', 'Proof', 'Bottle Size (ml)', 'Amount Remaining (ml)', 'Flavor Notes']
+    const headers = ['Type', 'Brand', 'Name', 'Proof', 'Bottle Size (ml)', 'Amount Remaining (ml)', 'Flavor Notes']
     const rows = inventory.map(item => [
-      item.type || '', item.name || '', item.proof || '',
+      item.type || '', item.brand || '', item.name || '', item.proof || '',
       item.bottleSizeMl || '', item.amountRemaining || '', item.flavorNotes || ''
     ])
     const csvContent = [
@@ -1062,12 +1390,17 @@ function App() {
 
   // Shopping List Functions
   const addToShoppingList = (item) => {
-    if (shoppingList.some(i => i.name.toLowerCase() === item.name.toLowerCase())) {
+    const normalize = (value) => (value || '').toLowerCase()
+    if (shoppingList.some(i =>
+      normalize(i.name) === normalize(item.name) &&
+      normalize(i.brand) === normalize(item.brand)
+    )) {
       // Already exists - skip silently
       return
     }
     setShoppingList([...shoppingList, {
       name: item.name,
+      brand: item.brand || '',
       type: item.type || 'Recipe Ingredient',
       size: item.bottleSizeMl || item.size,
       amount: item.amount, // For recipe ingredients
@@ -1134,6 +1467,17 @@ function App() {
         grouped[type].push({ ...item, originalIndex })
       }
     })
+
+    // Sort items alphabetically by name within each category (only when not editing)
+    if (!editingInventory) {
+      Object.keys(grouped).forEach(type => {
+        grouped[type].sort((a, b) => {
+          const nameA = (a.name || '').toLowerCase()
+          const nameB = (b.name || '').toLowerCase()
+          return nameA.localeCompare(nameB)
+        })
+      })
+    }
 
     return { newItems, grouped }
   }
@@ -1282,7 +1626,6 @@ function App() {
                 onClick={() => {
                   if (confirm('Clear all chat history?')) {
                     setMessages([])
-                    localStorage.removeItem('bartenderChatHistory')
                   }
                 }}
                 style={{
@@ -1474,6 +1817,61 @@ function App() {
                     Import JSON
                   </button>
                   <button
+                    onClick={async () => {
+                      const itemsMissingNotes = inventory.filter(item => {
+                        const hasName = item.name && item.name.trim().length > 0
+                        const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0
+                        return hasName && !hasNotes
+                      })
+
+                      if (itemsMissingNotes.length === 0) {
+                        alert('All items already have flavor notes!')
+                        return
+                      }
+
+                      if (!confirm(`Generate AI flavor notes for ${itemsMissingNotes.length} item(s)?`)) {
+                        return
+                      }
+
+                      setGeneratingNotes(true)
+                      setNoteStatus(`Generating flavor notes for ${itemsMissingNotes.length} item(s)...`)
+
+                      try {
+                        const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ inventory })
+                        })
+
+                        if (enrichResponse.ok) {
+                          const enrichData = await enrichResponse.json()
+                          const enrichedInventory = ensureInventoryShape(enrichData.inventory || inventory)
+                          setInventory(enrichedInventory)
+                          setNoteStatus('Flavor notes generated! Click Edit to review and save.')
+                        } else {
+                          setNoteStatus('Failed to generate flavor notes. Please try again.')
+                        }
+                      } catch (error) {
+                        console.error('Failed to generate flavor notes:', error)
+                        setNoteStatus('Failed to generate flavor notes. Please try again.')
+                      } finally {
+                        setGeneratingNotes(false)
+                      }
+                    }}
+                    disabled={generatingNotes}
+                    style={{
+                      background: generatingNotes ? '#a78bfa' : '#8b5cf6',
+                      color: 'white',
+                      border: 'none',
+                      padding: '8px 16px',
+                      borderRadius: '8px',
+                      cursor: generatingNotes ? 'not-allowed' : 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    {generatingNotes ? 'Generating...' : 'Generate Flavor Notes'}
+                  </button>
+                  <button
                     onClick={() => {
                       setEditingInventory(true)
                       setNoteStatus('')
@@ -1493,7 +1891,22 @@ function App() {
                 </div>
               ) : (
                 <div>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      onClick={openAddItemModal}
+                      style={{
+                        background: '#10b981',
+                        color: 'white',
+                        border: 'none',
+                        padding: '8px 16px',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontSize: '14px',
+                        fontWeight: '600'
+                      }}
+                    >
+                      + Add Item
+                    </button>
                     <button
                       onClick={() => setBulkSelectMode(!bulkSelectMode)}
                       style={{
@@ -1634,7 +2047,10 @@ function App() {
                     gap: isMobile ? '8px' : '0'
                   }}>
                     <span style={{ fontSize: isMobile ? '12px' : '14px' }}>
-                      <strong>{item.name}</strong> ({item.type})
+                      <strong>
+                        {item.brand ? `${item.brand} · ${item.name}` : item.name}
+                      </strong>
+                      {item.type && ` (${item.type})`}
                       {item.amount && ` - ${item.amount}`}
                       {item.size && ` - ${item.size}ml`}
                     </span>
@@ -1659,7 +2075,6 @@ function App() {
                   onClick={() => {
                     if (confirm('Clear entire shopping list?')) {
                       setShoppingList([])
-                      localStorage.removeItem('shoppingList')
                     }
                   }}
                   style={{
@@ -1780,6 +2195,16 @@ function App() {
                                   </option>
                                 ))}
                               </select>
+                            </div>
+                            <div style={{ flex: '1 1 200px', minWidth: '160px' }}>
+                              <label style={fieldLabelStyle}>Brand</label>
+                              <input
+                                type="text"
+                                value={item.brand}
+                                onChange={(e) => updateInventoryItem(idx, 'brand', e.target.value)}
+                                placeholder="e.g. Absolut"
+                                style={fieldInputStyle}
+                              />
                             </div>
                             <div style={{ flex: '2 1 240px', minWidth: '200px' }}>
                               <label style={fieldLabelStyle}>Name</label>
@@ -1902,8 +2327,15 @@ function App() {
                         </div>
                       ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                          <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                            {item.name || 'Unnamed Bottle'}
+                          <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                            {item.brand ? (
+                              <>
+                                <span>{item.brand}</span>
+                                <span style={{ opacity: 0.85 }}>{item.name || 'Unnamed Bottle'}</span>
+                              </>
+                            ) : (
+                              item.name || 'Unnamed Bottle'
+                            )}
                             {shouldShowProgress(item.type) && (() => {
                               const stockStatus = getStockLevel(
                                 parseFloat(item.amountRemaining) || 0,
@@ -2001,7 +2433,7 @@ function App() {
                       )}
 
                       {/* Grouped by Type */}
-                      {Object.entries(grouped).map(([type, items]) => {
+                      {Object.entries(grouped).sort(([typeA], [typeB]) => typeA.localeCompare(typeB)).map(([type, items]) => {
                         // Default to collapsed (true) if not explicitly set
                         const isCollapsed = collapsedTypes[type] !== false
 
@@ -2094,6 +2526,16 @@ function App() {
                                         </option>
                                       ))}
                                     </select>
+                                  </div>
+                                  <div style={{ flex: '1 1 200px', minWidth: '160px' }}>
+                                    <label style={fieldLabelStyle}>Brand</label>
+                                    <input
+                                      type="text"
+                                      value={item.brand}
+                                      onChange={(e) => updateInventoryItem(idx, 'brand', e.target.value)}
+                                      placeholder="e.g. Absolut"
+                                      style={fieldInputStyle}
+                                    />
                                   </div>
                                   <div style={{ flex: '2 1 240px', minWidth: '200px' }}>
                                     <label style={fieldLabelStyle}>Name</label>
@@ -2210,8 +2652,15 @@ function App() {
                               </div>
                             ) : (
                               <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
-                                  {item.name || 'Unnamed Bottle'}
+                                <div style={{ fontWeight: 600, fontSize: isMobile ? '14px' : '15px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: '6px' }}>
+                                  {item.brand ? (
+                                    <>
+                                      <span>{item.brand}</span>
+                                      <span style={{ opacity: 0.85 }}>{item.name || 'Unnamed Bottle'}</span>
+                                    </>
+                                  ) : (
+                                    item.name || 'Unnamed Bottle'
+                                  )}
                                   {shouldShowProgress(item.type) && (() => {
                                     const stockStatus = getStockLevel(
                                       parseFloat(item.amountRemaining) || 0,
@@ -2314,7 +2763,7 @@ function App() {
 
                 {editingInventory && (
                   <button
-                    onClick={addInventoryItem}
+                    onClick={openAddItemModal}
                     style={{
                       width: '100%',
                       background: '#f3f4f6',
@@ -2416,6 +2865,22 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Add Inventory Modal */}
+      <AddInventoryModal
+        isOpen={addItemModalOpen}
+        onClose={closeAddItemModal}
+        item={modalItem}
+        onUpdateItem={updateModalItem}
+        onSaveAndAddAnother={saveAndAddAnother}
+        onSaveAndClose={saveAndClose}
+        bottleUnit={modalBottleUnit}
+        remainingUnit={modalRemainingUnit}
+        onBottleUnitChange={setModalBottleUnit}
+        onRemainingUnitChange={setModalRemainingUnit}
+        isMobile={isMobile}
+        isGenerating={generatingNotes}
+      />
     </div>
   )
 }
