@@ -88,6 +88,7 @@ export default {
 
       // Route: Enrich inventory with flavor notes
       if (url.pathname === '/api/enrich-inventory' && request.method === 'POST') {
+        const forceProvider = url.searchParams.get('provider') || 'auto';
         const { inventory } = await request.json();
 
         if (!Array.isArray(inventory)) {
@@ -136,7 +137,9 @@ export default {
 
               const prompt = `Write two concise sentences (max 45 words total) describing the flavor profile for ${friendlyName}, a ${friendlyType} (${proofText}, ${bottleText}). Mention aroma, palate, and finish, and optionally suggest a classic cocktail style it shines in. No marketing fluff or bullet points.`;
 
-              try {
+              const shouldUseGroqFirst = forceProvider.toLowerCase() === 'groq';
+
+              const tryGemini = async () => {
                 const geminiPayload = {
                   contents: [{
                     role: 'user',
@@ -149,26 +152,47 @@ export default {
                 };
 
                 const geminiData = await callGemini(geminiPayload, env);
-                flavorNotes = extractGeminiText(geminiData);
-                if (!flavorNotes) {
+                const text = extractGeminiText(geminiData);
+                if (!text) {
                   throw new Error('Gemini returned empty flavor notes');
                 }
-              } catch (geminiError) {
-                console.error(`Gemini flavor note error for ${friendlyName}:`, geminiError.status, geminiError.body || geminiError.message);
-                if (geminiError.status === 429) {
-                  console.error('Gemini quota exceeded – using Groq fallback');
+                return text;
+              };
+
+              const tryGroq = async () => {
+                const groqData = await callGroq([
+                  { role: 'system', content: 'You are a spirits sommelier who writes short tasting notes.' },
+                  { role: 'user', content: prompt }
+                ], env, { temperature: 0.6, maxTokens: 160 });
+                const text = (groqData?.choices?.[0]?.message?.content || '').trim();
+                if (!text) {
+                  throw new Error('Groq returned empty flavor notes');
                 }
+                return text;
+              };
+
+              const runProviders = async () => {
+                if (shouldUseGroqFirst) {
+                  try {
+                    return await tryGroq();
+                  } catch (groqError) {
+                    console.error(`Groq (forced) flavor note error for ${friendlyName}:`, groqError.status, groqError.body || groqError.message);
+                    throw groqError;
+                  }
+                }
+
                 try {
-                  const groqData = await callGroq([
-                    { role: 'system', content: 'You are a spirits sommelier who writes short tasting notes.' },
-                    { role: 'user', content: prompt }
-                  ], env, { temperature: 0.6, maxTokens: 160 });
-                  flavorNotes = (groqData?.choices?.[0]?.message?.content || '').trim();
-                } catch (groqError) {
-                  console.error(`Groq flavor note error for ${friendlyName}:`, groqError.status, groqError.body || groqError.message);
-                  continue;
+                  return await tryGemini();
+                } catch (geminiError) {
+                  console.error(`Gemini flavor note error for ${friendlyName}:`, geminiError.status, geminiError.body || geminiError.message);
+                  if (geminiError.status === 429) {
+                    console.error('Gemini quota exceeded – using Groq fallback');
+                  }
+                  return await tryGroq();
                 }
-              }
+              };
+
+              flavorNotes = await runProviders();
 
               if (flavorNotes) {
                 // Keep cache from growing indefinitely
