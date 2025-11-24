@@ -4,8 +4,8 @@
   "description": "Your Home AI personal mixologist powered by classic cocktail knowledge",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1e1b4b",
-  "theme_color": "#1e1b4b",
+  "background_color": "#667eea",
+  "theme_color": "#667eea",
   "orientation": "portrait-primary",
   "icons": [
     {

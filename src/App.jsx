@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, memo } from 'react'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -23,7 +23,8 @@ const convertFromMl = (mlValue, targetUnit) => {
 }
 
 // Progress Bar Component for Bottle Fill Levels
-function ProgressBar({ current, total }) {
+// #22: Memoized to prevent unnecessary re-renders
+const ProgressBar = memo(function ProgressBar({ current, total }) {
   const percentage = total > 0 ? Math.min(100, (current / total) * 100) : 0
 
   // Color coding: green (>50%), yellow (25-50%), red (<25%)
@@ -48,7 +49,7 @@ function ProgressBar({ current, total }) {
       }} />
     </div>
   )
-}
+});
 
 // Helper function to check if item should show progress/stock indicators
 const shouldShowProgress = (itemType) => {
@@ -126,6 +127,37 @@ const normalizeInventoryItem = (item) => {
 
 const ensureInventoryShape = (items = []) => items.map(normalizeInventoryItem)
 
+const shouldSkipFlavorNotes = (item = {}) => {
+  const skippedTypes = ['tool', 'other']
+  const type = (item.type || '').toLowerCase()
+  return skippedTypes.includes(type)
+}
+
+const countItemsMissingFlavorNotes = (items = []) =>
+  items.filter(item => {
+    if (shouldSkipFlavorNotes(item)) return false
+    const hasName = item.name && item.name.trim().length > 0
+    const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0
+    return hasName && !hasNotes
+  }).length
+
+const PurpleMoonIcon = ({ size = 24, style = {} }) => (
+  <img
+    src="/purple-moon-logo.png"
+    alt="Purple moon"
+    width={size}
+    height={size}
+    loading="lazy"
+    style={{
+      display: 'inline-block',
+      width: size,
+      height: size,
+      objectFit: 'contain',
+      ...style
+    }}
+  />
+)
+
 const normalizeSearchText = (value) => {
   if (!value) return ''
   return String(value)
@@ -149,7 +181,8 @@ const buildItemSearchText = (item) => {
 }
 
 // Recipe Builder Component
-function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
+// #22: Memoized to prevent unnecessary re-renders
+const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
   const [name, setName] = useState(recipe?.name || '')
   const [ingredients, setIngredients] = useState(recipe?.ingredients || [])
   const [instructions, setInstructions] = useState(recipe?.instructions || '')
@@ -239,15 +272,16 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
       <div style={{ marginBottom: '16px' }}>
         <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Ingredients</label>
         {ingredients.map((ing, idx) => (
-          <div key={idx} style={{ display: 'flex', gap: '8px', marginBottom: '8px', alignItems: 'center' }}>
-            <div style={{ flex: 2, minWidth: '200px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+          <div key={idx} style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '12px', padding: '12px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>Ingredient</label>
               <input
                 type="text"
                 list={`ingredient-options-${idx}`}
                 value={ing.name}
                 onChange={(e) => updateIngredient(idx, 'name', e.target.value)}
                 placeholder="Start typing an ingredient..."
-                style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+                style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
               />
               <datalist id={`ingredient-options-${idx}`}>
                 {inventoryOptions.map((option, optionIdx) => (
@@ -255,34 +289,55 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
                 ))}
               </datalist>
             </div>
-            <input
-              type="number"
-              value={ing.amount}
-              onChange={(e) => updateIngredient(idx, 'amount', e.target.value)}
-              placeholder="Amount"
-              style={{ flex: 1, padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
-            />
-            <select
-              value={ing.unit}
-              onChange={(e) => updateIngredient(idx, 'unit', e.target.value)}
-              style={{ padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
-            >
-              <option value="ml">ml</option>
-              <option value="oz">oz</option>
-              <option value="dash">dash</option>
-              <option value="tsp">tsp</option>
-            </select>
-            <button
-              onClick={() => removeIngredient(idx)}
-              style={{ padding: '8px 12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
-            >
-              ✕
-            </button>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end' }}>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>Amount</label>
+                <input
+                  type="number"
+                  value={ing.amount}
+                  onChange={(e) => updateIngredient(idx, 'amount', e.target.value)}
+                  placeholder="2"
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+                />
+              </div>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '12px', color: '#6b7280', fontWeight: '600' }}>Unit</label>
+                <select
+                  value={ing.unit}
+                  onChange={(e) => updateIngredient(idx, 'unit', e.target.value)}
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+                >
+                  <option value="ml">ml</option>
+                  <option value="oz">oz</option>
+                  <option value="dash">dash</option>
+                  <option value="tsp">tsp</option>
+                </select>
+              </div>
+              <button
+                onClick={() => removeIngredient(idx)}
+                style={{ padding: '8px 12px', minHeight: '38px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}
+                aria-label="Remove ingredient"
+              >
+                ✕
+              </button>
+            </div>
           </div>
         ))}
         <button
           onClick={addIngredient}
-          style={{ padding: '8px 16px', background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            minHeight: '44px',
+            background: '#10b981',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: '600',
+            touchAction: 'manipulation'
+          }}
         >
           + Add Ingredient
         </button>
@@ -299,27 +354,26 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
         />
       </div>
 
-      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px' }}>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Glassware</label>
-          <input
-            type="text"
-            value={glass}
-            onChange={(e) => setGlass(e.target.value)}
-            placeholder="e.g., Martini"
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
-          />
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Garnish</label>
-          <input
-            type="text"
-            value={garnish}
-            onChange={(e) => setGarnish(e.target.value)}
-            placeholder="e.g., Lime wheel"
-            style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
-          />
-        </div>
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Glassware</label>
+        <input
+          type="text"
+          value={glass}
+          onChange={(e) => setGlass(e.target.value)}
+          placeholder="e.g., Martini"
+          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+        />
+      </div>
+
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Garnish</label>
+        <input
+          type="text"
+          value={garnish}
+          onChange={(e) => setGarnish(e.target.value)}
+          placeholder="e.g., Lime wheel"
+          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+        />
       </div>
 
       <div style={{ marginBottom: '16px' }}>
@@ -336,20 +390,20 @@ function RecipeBuilder({ recipe, inventory, onSave, onCancel }) {
       <div style={{ display: 'flex', gap: '8px' }}>
         <button
           onClick={handleSave}
-          style={{ flex: 1, padding: '10px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}
+          style={{ flex: 1, padding: '12px', minHeight: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}
         >
           {recipe ? 'Update Recipe' : 'Save Recipe'}
         </button>
         <button
           onClick={onCancel}
-          style={{ flex: 1, padding: '10px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
+          style={{ flex: 1, padding: '12px', minHeight: '44px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
         >
           Cancel
         </button>
       </div>
     </div>
   )
-}
+});
 
 // Add Inventory Item Modal Component
 function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAnother, onSaveAndClose, bottleUnit, remainingUnit, onBottleUnitChange, onRemainingUnitChange, isMobile, isGenerating }) {
@@ -364,30 +418,65 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
   }
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      background: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 9999,
-      padding: '16px'
-    }}>
-      <div style={{
-        background: 'white',
-        borderRadius: '12px',
-        padding: isMobile ? '20px' : '24px',
-        maxWidth: '500px',
-        width: '100%',
-        maxHeight: '90vh',
-        overflowY: 'auto',
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)'
-      }}>
-        <h2 style={{ margin: '0 0 20px 0', fontSize: isMobile ? '20px' : '18px' }}>Add Inventory Item</h2>
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.5)',
+        display: 'flex',
+        alignItems: 'flex-end',
+        zIndex: 9999,
+        animation: 'fadeIn 0.2s ease'
+      }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'white',
+          borderRadius: isMobile ? '20px 20px 0 0' : '12px',
+          padding: isMobile ? '20px' : '24px',
+          paddingBottom: isMobile ? 'calc(20px + env(safe-area-inset-bottom))' : '24px',
+          maxWidth: isMobile ? '100%' : '500px',
+          width: '100%',
+          maxHeight: isMobile ? '85vh' : '90vh',
+          overflowY: 'auto',
+          boxShadow: '0 -10px 25px -5px rgba(0, 0, 0, 0.1), 0 -10px 10px -5px rgba(0, 0, 0, 0.04)',
+          animation: 'slideUp 0.3s ease',
+          margin: isMobile ? '0' : '16px auto',
+          position: 'relative'
+        }}
+      >
+        <button
+          onClick={onClose}
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            width: '44px',
+            height: '44px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            background: 'rgba(0,0,0,0.05)',
+            border: 'none',
+            borderRadius: '50%',
+            fontSize: '20px',
+            cursor: 'pointer',
+            color: '#6b7280',
+            transition: 'all 0.2s',
+            zIndex: 1
+          }}
+          onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+          onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+          aria-label="Close"
+        >
+          ✕
+        </button>
+        <h2 style={{ margin: '0 0 20px 0', fontSize: isMobile ? '20px' : '18px', paddingRight: '40px' }}>Add Inventory Item</h2>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Type */}
@@ -522,6 +611,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
             style={{
               flex: 1,
               minWidth: '140px',
+              minHeight: '44px',
               padding: isMobile ? '12px' : '10px',
               background: item.name.trim() ? '#667eea' : '#d1d5db',
               color: 'white',
@@ -540,6 +630,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
             style={{
               flex: 1,
               minWidth: '100px',
+              minHeight: '44px',
               padding: isMobile ? '12px' : '10px',
               background: item.name.trim() ? '#10b981' : '#d1d5db',
               color: 'white',
@@ -556,6 +647,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
             onClick={onClose}
             style={{
               flex: '0 0 auto',
+              minHeight: '44px',
               padding: isMobile ? '12px 16px' : '10px 14px',
               background: '#6b7280',
               color: 'white',
@@ -574,76 +666,125 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
 }
 
 // Recipe Card Component with Flexible Ingredient Matching
-function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList }) {
+// #22: Memoized to prevent unnecessary re-renders
+const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList }) {
   const [expanded, setExpanded] = useState(false)
+  const [showBottleSelection, setShowBottleSelection] = useState(false)
+  const [selectedBottles, setSelectedBottles] = useState({})
+
+  // Helper function to check if an item matches an ingredient
+  const itemMatchesIngredient = (item, ingNameLower) => {
+    const itemNameLower = item.name.toLowerCase().trim()
+    const itemTypeLower = (item.type || '').toLowerCase().trim()
+    const itemBrandLower = (item.brand || '').toLowerCase().trim()
+
+    // Exact match (case-insensitive)
+    if (itemNameLower === ingNameLower) {
+      return true
+    }
+
+    // Base spirit types that we should match by TYPE field
+    const baseSpirits = ['vodka', 'rum', 'gin', 'whiskey', 'whisky', 'tequila', 'bourbon', 'brandy', 'cognac', 'scotch', 'rye', 'mezcal']
+
+    // Wine categories for generic wine matching
+    const redWines = ['cabernet', 'merlot', 'pinot noir', 'syrah', 'shiraz', 'malbec', 'zinfandel', 'sangiovese', 'tempranillo', 'grenache', 'barbera', 'nebbiolo', 'petite sirah', 'carmenere']
+    const whiteWines = ['chardonnay', 'sauvignon blanc', 'pinot grigio', 'pinot gris', 'riesling', 'moscato', 'gewurztraminer', 'viognier', 'chenin blanc', 'semillon', 'albarino', 'vermentino']
+    const roseWines = ['rosé', 'rose', 'blush']
+
+    // Check for generic wine descriptors
+    const isRedWineRequest = ingNameLower.includes('red wine') ||
+                              ingNameLower === 'red' && itemTypeLower === 'wine'
+    const isWhiteWineRequest = ingNameLower.includes('white wine')
+    const isRoseWineRequest = ingNameLower.includes('rosé') ||
+                               ingNameLower.includes('rose wine') ||
+                               ingNameLower.includes('blush wine')
+
+    if (isRedWineRequest) {
+      return redWines.some(redWine =>
+        itemNameLower.includes(redWine) ||
+        itemBrandLower.includes(redWine)
+      ) && (itemTypeLower === 'wine' || itemTypeLower === '')
+    }
+    if (isWhiteWineRequest) {
+      return whiteWines.some(whiteWine =>
+        itemNameLower.includes(whiteWine) ||
+        itemBrandLower.includes(whiteWine)
+      ) && (itemTypeLower === 'wine' || itemTypeLower === '')
+    }
+    if (isRoseWineRequest) {
+      return roseWines.some(rose =>
+        itemNameLower.includes(rose) ||
+        itemBrandLower.includes(rose)
+      ) && (itemTypeLower === 'wine' || itemTypeLower === '')
+    }
+
+    // Specific ingredients that need exact/partial name matching
+    const specificIngredients = ['prosecco', 'champagne', 'wine', 'chardonnay', 'pinot', 'merlot', 'cabernet', 'sake', 'vermouth', 'sherry', 'port', 'madeira']
+
+    // Check if recipe wants a plain base spirit
+    if (baseSpirits.includes(ingNameLower)) {
+      if (itemTypeLower === ingNameLower) {
+        const flavorWords = ['apple', 'green', 'cherry', 'vanilla', 'citrus', 'spiced', 'coconut', 'pineapple', 'mango', 'peach', 'raspberry', 'strawberry', 'blueberry', 'blackberry']
+        const nameHasFlavor = flavorWords.some(flavor => itemNameLower.includes(flavor))
+        if (!nameHasFlavor) {
+          return true
+        }
+      }
+      return false
+    }
+
+    // Check for flavored spirits
+    const ingWords = ingNameLower.split(/\s+/)
+    const hasBaseSpirit = ingWords.some(word => baseSpirits.includes(word))
+
+    if (hasBaseSpirit) {
+      const spiritType = ingWords.find(word => baseSpirits.includes(word))
+      if (itemTypeLower !== spiritType) return false
+      const combinedText = `${itemNameLower} ${itemBrandLower} ${(item.flavorNotes || '').toLowerCase()}`
+      const flavorWords = ingWords.filter(word => !baseSpirits.includes(word))
+      return flavorWords.every(word => combinedText.includes(word))
+    }
+
+    // Check for specific ingredients
+    if (specificIngredients.some(specific => ingNameLower.includes(specific))) {
+      return itemNameLower.includes(ingNameLower) ||
+             ingNameLower.includes(itemNameLower) ||
+             (itemBrandLower && ingNameLower.includes(itemBrandLower))
+    }
+
+    // Generic word matching
+    const recipeWords = ingNameLower.split(/\s+/).filter(w => w.length > 2)
+    const flavorNoteLower = (item.flavorNotes || '').toLowerCase()
+    return recipeWords.every(word =>
+      itemNameLower.includes(word) ||
+      itemBrandLower.includes(word) ||
+      flavorNoteLower.includes(word)
+    )
+  }
 
   // Check if we have all ingredients with flexible matching
   const checkIngredients = () => {
     return recipe.ingredients.map(ing => {
       const ingNameLower = ing.name.toLowerCase().trim()
 
-      const invItem = inventory.find(item => {
-        const itemNameLower = item.name.toLowerCase().trim()
-        const itemTypeLower = (item.type || '').toLowerCase().trim()
-        const itemBrandLower = (item.brand || '').toLowerCase().trim()
+      // Find ALL matching items (not just first one)
+      const allMatches = inventory.filter(item => itemMatchesIngredient(item, ingNameLower))
 
-        // Exact match (case-insensitive)
-        if (itemNameLower === ingNameLower) {
-          return true
-        }
+      // Use the selected bottle if user has chosen, otherwise use first match
+      const invItem = selectedBottles[ing.name]
+        ? inventory.find(item => item.name === selectedBottles[ing.name])
+        : allMatches[0]
 
-        // Base spirit types that we should match by TYPE field
-        const baseSpirits = ['vodka', 'rum', 'gin', 'whiskey', 'whisky', 'tequila', 'bourbon', 'brandy', 'cognac', 'scotch', 'rye', 'mezcal']
+      // Store all matches for selection dialog
+      const hasMultipleOptions = allMatches.length > 1
 
-        // Check if recipe wants a plain base spirit (e.g., just "Vodka")
-        if (baseSpirits.includes(ingNameLower)) {
-          // Match by TYPE field
-          if (itemTypeLower === ingNameLower) {
-            // Make sure inventory name doesn't have flavor descriptors
-            const flavorWords = ['apple', 'green', 'cherry', 'vanilla', 'citrus', 'spiced', 'coconut', 'pineapple', 'mango', 'peach', 'raspberry', 'strawberry', 'blueberry', 'blackberry']
-            const nameHasFlavor = flavorWords.some(flavor => itemNameLower.includes(flavor))
-
-            if (!nameHasFlavor) {
-              return true
-            }
-          }
-          return false // Continue to next item
-        }
-
-        // Check for flavored spirits (e.g., "Apple Vodka", "Spiced Rum")
-        // Split recipe ingredient into words
-        const ingWords = ingNameLower.split(/\s+/)
-
-        // Check if recipe contains a base spirit
-        const hasBaseSpirit = ingWords.some(word => baseSpirits.includes(word))
-
-        if (hasBaseSpirit) {
-          // Recipe wants a flavored spirit
-          // Check if type matches first
-          const spiritType = ingWords.find(word => baseSpirits.includes(word))
-          if (itemTypeLower !== spiritType) return false
-
-          // Then check if all flavor words are in the name or flavor notes
-          const combinedText = `${itemNameLower} ${itemBrandLower} ${(item.flavorNotes || '').toLowerCase()}`
-          const flavorWords = ingWords.filter(word => !baseSpirits.includes(word))
-
-          return flavorWords.every(word => combinedText.includes(word))
-        }
-
-        // For non-spirits (mixers, sugar, juice, etc.): simple word matching
-        // "Lime Juice" matches anything with "lime" AND "juice"
-        // "Sugar" matches anything with "sugar"
-        const recipeWords = ingNameLower.split(/\s+/).filter(w => w.length > 2)
-
-        const flavorNoteLower = (item.flavorNotes || '').toLowerCase()
-        return recipeWords.every(word =>
-          itemNameLower.includes(word) ||
-          itemBrandLower.includes(word) ||
-          flavorNoteLower.includes(word)
-        )
-      })
-
-      if (!invItem) return { ...ing, available: false, remaining: 0 }
+      if (!invItem) return {
+        ...ing,
+        available: false,
+        remaining: 0,
+        allMatches: [],
+        hasMultipleOptions: false
+      }
 
       // For pantry items (garnish, tools, etc.), existence = availability
       const pantryTypes = ['other', 'garnish', 'tool', 'bitters', 'syrup']
@@ -651,7 +792,15 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
 
       if (isPantryItem) {
         // Pantry items don't need quantity tracking - if it exists, it's available
-        return { ...ing, available: true, remaining: 999999, matchedItem: invItem.name, matchedBrand: invItem.brand || '' }
+        return {
+          ...ing,
+          available: true,
+          remaining: 999999,
+          matchedItem: invItem.name,
+          matchedBrand: invItem.brand || '',
+          allMatches,
+          hasMultipleOptions
+        }
       }
 
       // For spirits/liquids, check quantity
@@ -660,10 +809,26 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
 
       // If amount is not a number (empty, "In Stock", etc.), treat as available
       if (isNaN(remaining)) {
-        return { ...ing, available: true, remaining: 999999, matchedItem: invItem.name, matchedBrand: invItem.brand || '' }
+        return {
+          ...ing,
+          available: true,
+          remaining: 999999,
+          matchedItem: invItem.name,
+          matchedBrand: invItem.brand || '',
+          allMatches,
+          hasMultipleOptions
+        }
       }
 
-      return { ...ing, available: remaining >= neededMl, remaining, matchedItem: invItem.name, matchedBrand: invItem.brand || '' }
+      return {
+        ...ing,
+        available: remaining >= neededMl,
+        remaining,
+        matchedItem: invItem.name,
+        matchedBrand: invItem.brand || '',
+        allMatches,
+        hasMultipleOptions
+      }
     })
   }
 
@@ -671,15 +836,53 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
   const canMake = ingredientStatus.every(ing => ing.available)
   const missingIngredients = ingredientStatus.filter(ing => !ing.available)
 
-  const makeRecipe = () => {
+  const handleMakeRecipe = () => {
+    // Check if any ingredients have multiple options
+    const ingredientsWithOptions = ingredientStatus.filter(ing => ing.hasMultipleOptions)
+
+    if (ingredientsWithOptions.length > 0) {
+      // Show bottle selection dialog
+      setShowBottleSelection(true)
+    } else {
+      // No choices needed, make the drink directly
+      executeRecipe()
+    }
+  }
+
+  const executeRecipe = () => {
     const updates = ingredientStatus
       .filter(ing => ing.matchedItem)
       .map(ing => {
         const mlAmount = ing.unit === 'oz' ? parseFloat(ing.amount) * 30 : parseFloat(ing.amount)
-        return { name: ing.matchedItem, subtract: mlAmount }
+        return {
+          name: ing.matchedItem,
+          subtract: mlAmount,
+          ingredient: ing.name,
+          brand: ing.matchedBrand,
+          amount: ing.amount,
+          unit: ing.unit
+        }
       })
+
+    // Build detailed confirmation message
+    const bottleList = updates
+      .map(u => {
+        const brandPrefix = u.brand ? `${u.brand} ` : ''
+        const amountText = `${u.amount} ${u.unit}`
+        if (u.ingredient.toLowerCase() === u.name.toLowerCase()) {
+          // Exact match - just show the amount
+          return `  • ${brandPrefix}${u.name}: ${amountText}`
+        } else {
+          // Generic ingredient matched to specific bottle
+          return `  • ${u.ingredient}: ${amountText} (using ${brandPrefix}${u.name})`
+        }
+      })
+      .join('\n')
+
     onMake(updates)
-    alert(`Made ${recipe.name}! Inventory updated.`)
+    alert(`Made ${recipe.name}!\n\nUsed from inventory:\n${bottleList}\n\nInventory updated.`)
+    setShowBottleSelection(false)
+    setSelectedBottles({})
   }
 
   const addMissingToShoppingList = () => {
@@ -704,17 +907,29 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => onEdit(recipe)} style={{ padding: '4px 8px', fontSize: '12px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-          <button onClick={() => { if (confirm(`Delete ${recipe.name}?`)) onDelete(recipe.id) }} style={{ padding: '4px 8px', fontSize: '12px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+          <button onClick={() => onEdit(recipe)} style={{ padding: '8px 12px', minHeight: '44px', minWidth: '44px', fontSize: '13px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+          <button onClick={() => { if (confirm(`Delete ${recipe.name}?`)) onDelete(recipe.id) }} style={{ padding: '8px 12px', minHeight: '44px', minWidth: '44px', fontSize: '13px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
         </div>
       </div>
 
       <div style={{ marginBottom: '12px' }}>
         <strong style={{ fontSize: '14px' }}>Ingredients:</strong>
-        <ul style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '14px' }}>
+        <ul style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '14px', lineHeight: '1.6' }}>
           {ingredientStatus.map((ing, idx) => (
             <li key={idx} style={{ color: ing.available ? '#059669' : '#dc2626' }}>
-              {ing.name}: {ing.amount} {ing.unit} {ing.available ? '✓' : '✗ Missing'}
+              <span style={{ fontWeight: '600' }}>{ing.name}</span>: {ing.amount} {ing.unit}
+              {ing.available ? (
+                <>
+                  {' ✓'}
+                  {ing.matchedItem && ing.matchedItem.toLowerCase() !== ing.name.toLowerCase() && (
+                    <span style={{ fontSize: '12px', color: '#6b7280', fontStyle: 'italic' }}>
+                      {' '}(using {ing.matchedBrand ? `${ing.matchedBrand} ` : ''}{ing.matchedItem})
+                    </span>
+                  )}
+                </>
+              ) : (
+                ' ✗ Missing'
+              )}
             </li>
           ))}
         </ul>
@@ -740,12 +955,12 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
       <div style={{ display: 'flex', gap: '8px', marginTop: '12px', flexWrap: 'wrap' }}>
         <button
           onClick={() => setExpanded(!expanded)}
-          style={{ flex: 1, minWidth: '120px', padding: '8px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
+          style={{ flex: 1, minWidth: '120px', padding: '12px', minHeight: '44px', background: '#6b7280', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
         >
           {expanded ? 'Hide Details' : 'Show Details'}
         </button>
         <button
-          onClick={makeRecipe}
+          onClick={handleMakeRecipe}
           disabled={!canMake}
           style={{
             flex: 1,
@@ -782,9 +997,180 @@ function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppi
           </button>
         )}
       </div>
+
+      {/* Bottle Selection Modal */}
+      {showBottleSelection && (
+        <div
+          onClick={() => setShowBottleSelection(false)}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 10000,
+            padding: '20px'
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: 'white',
+              borderRadius: '12px',
+              padding: '24px',
+              maxWidth: '500px',
+              width: '100%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+              position: 'relative'
+            }}
+          >
+            <button
+              onClick={() => setShowBottleSelection(false)}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                width: '44px',
+                height: '44px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: 'rgba(0,0,0,0.05)',
+                border: 'none',
+                borderRadius: '50%',
+                fontSize: '20px',
+                cursor: 'pointer',
+                color: '#6b7280',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.1)'}
+              onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(0,0,0,0.05)'}
+              aria-label="Close"
+            >
+              ✕
+            </button>
+            <h3 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: '600', paddingRight: '40px' }}>
+              Select Bottles
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '14px', color: '#6b7280' }}>
+              Multiple options found. Choose which bottle to use for each ingredient:
+            </p>
+
+            {ingredientStatus
+              .filter(ing => ing.hasMultipleOptions)
+              .map((ing, idx) => (
+                <div key={idx} style={{ marginBottom: '24px', padding: '16px', background: '#f9fafb', borderRadius: '8px', border: '1px solid #e5e7eb' }}>
+                  <div style={{ marginBottom: '12px' }}>
+                    <strong style={{ fontSize: '16px', color: '#111' }}>{ing.name}</strong>
+                    <span style={{ fontSize: '14px', color: '#6b7280', marginLeft: '8px' }}>
+                      ({ing.amount} {ing.unit})
+                    </span>
+                  </div>
+
+                  {ing.allMatches.map((match, matchIdx) => {
+                    const matchName = match.name
+                    const isSelected = selectedBottles[ing.name] === matchName ||
+                                       (!selectedBottles[ing.name] && matchIdx === 0)
+
+                    return (
+                      <label
+                        key={matchIdx}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          padding: '12px',
+                          marginBottom: '8px',
+                          background: isSelected ? '#eff6ff' : 'white',
+                          border: isSelected ? '2px solid #3b82f6' : '1px solid #d1d5db',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          transition: 'all 0.2s'
+                        }}
+                        onMouseEnter={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = '#f3f4f6'
+                        }}
+                        onMouseLeave={(e) => {
+                          if (!isSelected) e.currentTarget.style.background = 'white'
+                        }}
+                      >
+                        <input
+                          type="radio"
+                          name={`bottle-${ing.name}`}
+                          checked={isSelected}
+                          onChange={() => {
+                            setSelectedBottles(prev => ({
+                              ...prev,
+                              [ing.name]: matchName
+                            }))
+                          }}
+                          style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+                        />
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111' }}>
+                            {match.brand && `${match.brand} `}{match.name}
+                          </div>
+                          {match.amountRemaining && !isNaN(parseFloat(match.amountRemaining)) && (
+                            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                              {Math.round(parseFloat(match.amountRemaining))} ml remaining
+                            </div>
+                          )}
+                        </div>
+                      </label>
+                    )
+                  })}
+                </div>
+              ))}
+
+            <div style={{ display: 'flex', gap: '8px', marginTop: '24px' }}>
+              <button
+                onClick={executeRecipe}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  minHeight: '44px',
+                  background: '#10b981',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px',
+                  fontWeight: '600'
+                }}
+              >
+                Make Drink
+              </button>
+              <button
+                onClick={() => {
+                  setShowBottleSelection(false)
+                  setSelectedBottles({})
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px',
+                  minHeight: '44px',
+                  background: '#6b7280',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  fontSize: '16px'
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
-}
+});
 
 function App() {
   const [messages, setMessages] = useState([])
@@ -811,7 +1197,12 @@ function App() {
   const [bulkSelectMode, setBulkSelectMode] = useState(false)
   const [selectedItems, setSelectedItems] = useState(new Set())
   const [itemUnits, setItemUnits] = useState({})
-  const [favoriteRecipes, setFavoriteRecipes] = useState([])
+
+  // Data loading state to prevent race conditions on save
+  const [dataLoaded, setDataLoaded] = useState({
+    shopping: false,
+    recipes: false
+  })
 
   // Add Item Modal state
   const [addItemModalOpen, setAddItemModalOpen] = useState(false)
@@ -821,14 +1212,44 @@ function App() {
 
   // New UI/UX enhancement state
   const [shoppingList, setShoppingList] = useState([])
-  const [touchStart, setTouchStart] = useState(null)
-  const [touchEnd, setTouchEnd] = useState(null)
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768)
 
+  // #7: Dark mode state
+  const [darkMode, setDarkMode] = useState(() => {
+    const saved = localStorage.getItem('darkMode')
+    if (saved !== null) return saved === 'true'
+    return window.matchMedia?.('(prefers-color-scheme: dark)').matches || false
+  })
+
+  // #5: Pull-to-refresh state
+  const [refreshing, setRefreshing] = useState(false)
+  const [pullDistance, setPullDistance] = useState(0)
+
+  // #9: FAB (Floating Action Button) state
+  const [fabMenuOpen, setFabMenuOpen] = useState(false)
+
+  // Maintenance menu state for inventory utilities
+  const [maintenanceMenuOpen, setMaintenanceMenuOpen] = useState(false)
+
   const messagesEndRef = useRef(null)
+  const chatContainerRef = useRef(null) // For pull-to-refresh
+
+  // #3: Haptic feedback utility
+  const hapticFeedback = (type = 'light') => {
+    if (!navigator.vibrate) return
+    const patterns = {
+      light: 10,
+      medium: 20,
+      heavy: 30,
+      success: [10, 50, 10],
+      error: [20, 100, 20]
+    }
+    navigator.vibrate(patterns[type] || patterns.light)
+  }
+
   const fieldLabelStyle = {
     display: 'block',
-    fontSize: '12px',
+    fontSize: '13px',
     color: '#4b5563',
     fontWeight: 600,
     marginBottom: '4px'
@@ -848,7 +1269,6 @@ function App() {
     loadInventory()
     loadRecipes()
     loadShopping()
-    loadFavorites()
     loadChatHistory()
   }, [])
 
@@ -876,28 +1296,29 @@ function App() {
       }
 
       setCustomRecipes(recipesData)
+      setDataLoaded(prev => ({ ...prev, recipes: true }))
     } catch (error) {
       console.error('Failed to load recipes:', error)
+      setDataLoaded(prev => ({ ...prev, recipes: true }))
     }
   }
 
   const loadShopping = async () => {
     try {
+      console.log('[Shopping] Loading shopping list from backend...')
       const response = await fetch(`${WORKER_URL}/shopping`)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
       const data = await response.json()
-      setShoppingList(data.shopping || [])
+      const loadedList = data.shopping || []
+      console.log(`[Shopping] Loaded ${loadedList.length} items:`, loadedList)
+      setShoppingList(loadedList)
+      setDataLoaded(prev => ({ ...prev, shopping: true }))
     } catch (error) {
-      console.error('Failed to load shopping list:', error)
-    }
-  }
-
-  const loadFavorites = async () => {
-    try {
-      const response = await fetch(`${WORKER_URL}/favorites`)
-      const data = await response.json()
-      setFavoriteRecipes(data.favorites || [])
-    } catch (error) {
-      console.error('Failed to load favorites:', error)
+      console.error('[Shopping] Failed to load shopping list:', error)
+      // Don't overwrite with empty array on error - keep what we have
+      setDataLoaded(prev => ({ ...prev, shopping: true }))
     }
   }
 
@@ -926,25 +1347,18 @@ function App() {
 
   const saveShopping = async (shopping) => {
     try {
-      await fetch(`${WORKER_URL}/shopping`, {
+      console.log(`[Shopping] Saving ${shopping.length} items to backend:`, shopping)
+      const response = await fetch(`${WORKER_URL}/shopping`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shopping })
       })
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      console.log('[Shopping] Save successful')
     } catch (error) {
-      console.error('Failed to save shopping list:', error)
-    }
-  }
-
-  const saveFavorites = async (favorites) => {
-    try {
-      await fetch(`${WORKER_URL}/favorites`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ favorites })
-      })
-    } catch (error) {
-      console.error('Failed to save favorites:', error)
+      console.error('[Shopping] Failed to save shopping list:', error)
     }
   }
 
@@ -960,47 +1374,70 @@ function App() {
     }
   }
 
-  // Save recipes to backend
+  // Save recipes to backend (only after initial load completes)
   useEffect(() => {
-    if (customRecipes.length > 0) {
+    if (dataLoaded.recipes && customRecipes.length > 0) {
       saveRecipes(customRecipes)
     }
-  }, [customRecipes])
+  }, [customRecipes, dataLoaded.recipes])
 
-  // Save shopping list to backend
+  // Save shopping list to backend (only after initial load completes to prevent race condition)
   useEffect(() => {
-    saveShopping(shoppingList)
-  }, [shoppingList])
+    if (dataLoaded.shopping) {
+      saveShopping(shoppingList)
+    }
+  }, [shoppingList, dataLoaded.shopping])
 
   // Auto-remove shopping list items when they appear in inventory
   useEffect(() => {
-    if (shoppingList.length === 0 || inventory.length === 0) return
+    if (shoppingList.length === 0 || inventory.length === 0 || !dataLoaded.shopping) return
 
     const itemsToRemove = shoppingList.filter(shopItem => {
-      // Check if this shopping list item now exists in inventory
       return inventory.some(invItem => {
         const shopNameLower = shopItem.name.toLowerCase().trim()
         const invNameLower = invItem.name.toLowerCase().trim()
         const invTypeLower = (invItem.type || '').toLowerCase().trim()
+        const invBrandLower = (invItem.brand || '').toLowerCase().trim()
 
-        // Only auto-remove if there's a very close match:
-        // 1. Exact name match
-        // 2. Inventory name fully contains the shopping item name (e.g., "Grey Goose Vodka" contains "vodka")
-        // 3. Type matches exactly (for generic items like "Vodka")
-        return invNameLower === shopNameLower ||
-               (invNameLower.includes(shopNameLower) && shopNameLower.length > 5) ||
-               (invTypeLower === shopNameLower && shopNameLower.length > 3)
+        // Match logic (in order of specificity):
+        // 1. Exact name match (e.g., "Grey Goose Vodka" === "Grey Goose Vodka")
+        if (invNameLower === shopNameLower) return true
+
+        // 2. Shopping item matches inventory type exactly (e.g., "vodka" === type:"Vodka")
+        if (invTypeLower === shopNameLower) return true
+
+        // 3. Brand + name match for specific branded items
+        if (invBrandLower && shopItem.brand) {
+          const shopBrandLower = shopItem.brand.toLowerCase().trim()
+          if (invBrandLower === shopBrandLower && invNameLower === shopNameLower) {
+            return true
+          }
+        }
+
+        // 4. Smart substring match: Shopping item is a "word" contained in inventory name
+        //    AND shopping item is at least 4 chars (prevents matching "gin" in "ginger")
+        //    Example: shopping "vodka" matches inventory "Grey Goose Vodka"
+        if (shopNameLower.length >= 4) {
+          // Use word boundaries to prevent false matches
+          const wordBoundaryPattern = new RegExp(`\\b${shopNameLower}\\b`)
+          if (wordBoundaryPattern.test(invNameLower)) return true
+
+          // Also check if shopping item matches the type as a word
+          if (wordBoundaryPattern.test(invTypeLower)) return true
+        }
+
+        return false
       })
     })
 
     if (itemsToRemove.length > 0) {
+      console.log(`[Shopping] Auto-removing ${itemsToRemove.length} item(s) (now in inventory):`, itemsToRemove)
       const updatedList = shoppingList.filter(shopItem =>
         !itemsToRemove.some(removed => removed.name === shopItem.name)
       )
       setShoppingList(updatedList)
-      console.log(`Auto-removed ${itemsToRemove.length} item(s) from shopping list (now in inventory)`)
     }
-  }, [inventory, shoppingList])
+  }, [inventory, shoppingList, dataLoaded.shopping])
 
   // Save chat messages to backend
   useEffect(() => {
@@ -1016,6 +1453,12 @@ function App() {
     window.addEventListener('resize', handleResize)
     return () => window.removeEventListener('resize', handleResize)
   }, [])
+
+  // #7: Dark mode persistence
+  useEffect(() => {
+    localStorage.setItem('darkMode', darkMode)
+    document.body.classList.toggle('dark-mode', darkMode)
+  }, [darkMode])
 
   // Auto-scroll to bottom
   useEffect(() => {
@@ -1063,6 +1506,7 @@ function App() {
 
     try {
       const itemsMissingNotes = normalizedInventory.filter(item => {
+        if (shouldSkipFlavorNotes(item)) return false
         const hasName = item.name && item.name.trim().length > 0
         const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0
         return hasName && !hasNotes
@@ -1123,6 +1567,7 @@ function App() {
   const sendMessage = async () => {
     if (!input.trim() || loading) return
 
+    hapticFeedback('light') // #3: Haptic feedback on send
     const userMessage = input.trim()
     setInput('')
     setMessages(prev => [...prev, { role: 'user', content: userMessage }])
@@ -1142,9 +1587,10 @@ function App() {
       const data = await response.json()
 
       if (data.error) {
+        const detailText = data.details ? ` (${data.details})` : ''
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: `Error: ${data.error}`
+          content: `Error: ${data.error}${detailText ? ` - ${detailText}` : ''}`
         }])
       } else {
         setMessages(prev => [...prev, {
@@ -1408,35 +1854,55 @@ function App() {
     }])
   }
 
-  // Touch Gesture Handlers for Mobile Navigation
-  const minSwipeDistance = 50
+  // #5: Pull-to-refresh handlers for inventory
+  const inventoryRef = useRef(null)
+  const pullStartY = useRef(0)
+  const pullThreshold = 80
 
-  const onTouchStart = (e) => {
-    setTouchEnd(null)
-    setTouchStart(e.targetTouches[0].clientX)
+  const handlePullStart = (e) => {
+    if (currentView !== 'inventory' || !inventoryRef.current) return
+    const scrollTop = inventoryRef.current.scrollTop
+    if (scrollTop === 0) {
+      pullStartY.current = e.touches[0].clientY
+    }
   }
 
-  const onTouchMove = (e) => {
-    setTouchEnd(e.targetTouches[0].clientX)
+  const handlePullMove = (e) => {
+    if (currentView !== 'inventory' || !inventoryRef.current) return
+    const scrollTop = inventoryRef.current.scrollTop
+
+    if (scrollTop === 0 && pullStartY.current > 0) {
+      const currentY = e.touches[0].clientY
+      const distance = Math.max(0, currentY - pullStartY.current)
+
+      if (distance > 0) {
+        e.preventDefault()
+        setPullDistance(Math.min(distance, pullThreshold * 1.5))
+      }
+    }
   }
 
-  const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return
+  const handlePullEnd = async () => {
+    if (currentView !== 'inventory') return
 
-    const distance = touchStart - touchEnd
-    const isLeftSwipe = distance > minSwipeDistance
-    const isRightSwipe = distance < -minSwipeDistance
+    if (pullDistance >= pullThreshold && !refreshing) {
+      setRefreshing(true)
+      hapticFeedback('success')
 
-    const views = ['chat', 'inventory', 'recipes']
-    const currentIndex = views.indexOf(currentView)
-
-    if (isLeftSwipe && currentIndex < views.length - 1) {
-      setCurrentView(views[currentIndex + 1])
+      try {
+        await loadInventory()
+        await new Promise(resolve => setTimeout(resolve, 500)) // Brief delay for UX
+        hapticFeedback('light')
+      } catch (error) {
+        console.error('Refresh failed:', error)
+        hapticFeedback('error')
+      } finally {
+        setRefreshing(false)
+      }
     }
 
-    if (isRightSwipe && currentIndex > 0) {
-      setCurrentView(views[currentIndex - 1])
-    }
+    setPullDistance(0)
+    pullStartY.current = 0
   }
 
   // Group inventory by type and apply search filter
@@ -1512,28 +1978,53 @@ function App() {
                 gap: '8px'
               }}
             >
-              <span style={{ fontSize: '24px' }}>🌙</span>
+              <PurpleMoonIcon size={26} />
               <span style={{ fontSize: '24px', fontWeight: 700 }}>Purple Moonz</span>
             </a>
             <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
               AI-powered home bartending
             </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowTomInfo(prev => !prev)}
-            style={{
-              padding: '6px 12px',
-              fontSize: '12px',
-              background: 'rgba(255,255,255,0.2)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            powered by Tom Bullock
-          </button>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            {/* #7: Dark mode toggle */}
+            <button
+              type="button"
+              onClick={() => {
+                hapticFeedback('light')
+                setDarkMode(prev => !prev)
+              }}
+              style={{
+                padding: '10px 12px',
+                fontSize: '18px',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                minHeight: '44px',
+                minWidth: '44px'
+              }}
+              title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            >
+              {darkMode ? '☀️' : <PurpleMoonIcon size={20} />}
+            </button>
+            <button
+              type="button"
+              onClick={() => { hapticFeedback('light'); setShowTomInfo(prev => !prev); }}
+              style={{
+                padding: '10px 12px',
+                fontSize: '12px',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                minHeight: '44px'
+              }}
+            >
+              powered by Tom Bullock
+            </button>
+          </div>
         </div>
 
         {showTomInfo && (
@@ -1559,14 +2050,18 @@ function App() {
             onClick={() => setCurrentView('chat')}
             style={{
               flex: 1,
-              padding: '10px',
+              padding: '12px',
+              minHeight: '48px',
               background: currentView === 'chat' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
               border: 'none',
               color: 'white',
               borderRadius: '8px',
               cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: currentView === 'chat' ? '600' : '400'
+              fontSize: '15px',
+              fontWeight: currentView === 'chat' ? '600' : '400',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             Chat
@@ -1575,14 +2070,18 @@ function App() {
             onClick={() => setCurrentView('inventory')}
             style={{
               flex: 1,
-              padding: '10px',
+              padding: '12px',
+              minHeight: '48px',
               background: currentView === 'inventory' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
               border: 'none',
               color: 'white',
               borderRadius: '8px',
               cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: currentView === 'inventory' ? '600' : '400'
+              fontSize: '15px',
+              fontWeight: currentView === 'inventory' ? '600' : '400',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             Inventory ({inventory.length})
@@ -1591,14 +2090,18 @@ function App() {
             onClick={() => setCurrentView('recipes')}
             style={{
               flex: 1,
-              padding: '10px',
+              padding: '12px',
+              minHeight: '48px',
               background: currentView === 'recipes' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
               border: 'none',
               color: 'white',
               borderRadius: '8px',
               cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: currentView === 'recipes' ? '600' : '400'
+              fontSize: '15px',
+              fontWeight: currentView === 'recipes' ? '600' : '400',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
             }}
           >
             Favorites ({customRecipes.length})
@@ -1611,13 +2114,11 @@ function App() {
         <>
           {/* Chat Messages */}
           <div
-            onTouchStart={onTouchStart}
-            onTouchMove={onTouchMove}
-            onTouchEnd={onTouchEnd}
             style={{
               flex: 1,
               overflowY: 'auto',
               padding: '16px',
+              paddingBottom: isMobile ? '100px' : '16px', // #2: Space for fixed input on mobile
               background: '#f5f5f5'
             }}
           >
@@ -1702,11 +2203,20 @@ function App() {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Input - #2: Sticky on mobile */}
           <div style={{
             padding: '16px',
+            paddingBottom: isMobile ? `calc(16px + env(safe-area-inset-bottom))` : '16px',
             background: 'white',
-            borderTop: '1px solid #e0e0e0'
+            borderTop: '1px solid #e0e0e0',
+            ...(isMobile ? {
+              position: 'fixed',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              zIndex: 1000,
+              boxShadow: '0 -2px 10px rgba(0,0,0,0.1)'
+            } : {})
           }}>
             <div style={{ display: 'flex', gap: '8px' }}>
               <input
@@ -1734,8 +2244,10 @@ function App() {
                   border: 'none',
                   borderRadius: '24px',
                   padding: '12px 24px',
+                  minHeight: '44px', // #4: Larger touch target
+                  minWidth: '80px', // #4: Larger touch target
                   cursor: loading || !input.trim() ? 'not-allowed' : 'pointer',
-                  fontSize: '14px',
+                  fontSize: '16px',
                   fontWeight: '600'
                 }}
               >
@@ -1749,16 +2261,61 @@ function App() {
       {currentView === 'inventory' && (
         // Inventory View with Export/Import and Bulk Operations
         <div
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
+          ref={inventoryRef}
+          onTouchStart={handlePullStart}
+          onTouchMove={handlePullMove}
+          onTouchEnd={handlePullEnd}
           style={{
             flex: 1,
             overflowY: 'auto',
             padding: '16px',
-            background: '#f5f5f5'
+            background: '#f5f5f5',
+            position: 'relative'
           }}
         >
+          {/* #5: Pull-to-refresh indicator */}
+          {pullDistance > 0 && (
+            <div style={{
+              position: 'absolute',
+              top: '0',
+              left: '50%',
+              transform: `translateX(-50%) translateY(${Math.min(pullDistance - 20, 60)}px)`,
+              zIndex: 1000,
+              transition: refreshing ? 'transform 0.3s ease' : 'none',
+              pointerEvents: 'none'
+            }}>
+              <div style={{
+                background: 'white',
+                borderRadius: '50%',
+                width: '40px',
+                height: '40px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                opacity: Math.min(pullDistance / pullThreshold, 1)
+              }}>
+                {refreshing ? (
+                  <div style={{
+                    width: '20px',
+                    height: '20px',
+                    border: '3px solid #667eea',
+                    borderTopColor: 'transparent',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite'
+                  }} />
+                ) : (
+                  <span style={{
+                    fontSize: '20px',
+                    transform: pullDistance >= pullThreshold ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s'
+                  }}>
+                    ↓
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
           <div style={{
             background: 'white',
             borderRadius: '12px',
@@ -1769,121 +2326,269 @@ function App() {
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
-              marginBottom: '20px'
+              marginBottom: '20px',
+              flexWrap: 'wrap',
+              gap: '12px'
             }}>
               <h2 style={{ margin: 0, fontSize: '20px' }}>Bar Inventory</h2>
               {!editingInventory ? (
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <div style={{ display: 'flex', gap: '8px', position: 'relative', alignItems: 'center' }}>
                   <button
-                    onClick={exportToCSV}
+                    onClick={() => {
+                      hapticFeedback('light')
+                      setMaintenanceMenuOpen(!maintenanceMenuOpen)
+                    }}
                     style={{
-                      background: '#10b981',
+                      background: maintenanceMenuOpen ? '#6b7280' : '#8b5cf6',
                       color: 'white',
                       border: 'none',
-                      padding: '8px 16px',
+                      padding: '8px 12px',
                       borderRadius: '8px',
                       cursor: 'pointer',
-                      fontSize: '14px'
+                      fontSize: '18px',
+                      minHeight: '40px',
+                      minWidth: '40px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
                     }}
+                    aria-label="Maintenance menu"
                   >
-                    Export CSV
+                    ⋮
                   </button>
-                  <button
-                    onClick={exportToJSON}
-                    style={{
-                      background: '#10b981',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Export JSON
-                  </button>
-                  <button
-                    onClick={importFromJSON}
-                    style={{
-                      background: '#3b82f6',
-                      color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
-                      cursor: 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    Import JSON
-                  </button>
-                  <button
-                    onClick={async () => {
-                      const itemsMissingNotes = inventory.filter(item => {
-                        const hasName = item.name && item.name.trim().length > 0
-                        const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0
-                        return hasName && !hasNotes
-                      })
 
-                      if (itemsMissingNotes.length === 0) {
+                  {/* Maintenance dropdown menu */}
+                  {maintenanceMenuOpen && (
+                    <>
+                      {/* Backdrop to close menu */}
+                      <div
+                        onClick={() => setMaintenanceMenuOpen(false)}
+                        style={{
+                          position: 'fixed',
+                          top: 0,
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          zIndex: 999
+                        }}
+                      />
+
+                      {/* Menu popup */}
+                      <div style={{
+                        position: 'absolute',
+                        top: '48px',
+                        right: '0',
+                        background: 'white',
+                        borderRadius: '12px',
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                        padding: '8px',
+                        zIndex: 1000,
+                        minWidth: '200px',
+                        animation: 'fadeIn 0.2s ease'
+                      }}>
+                        <button
+                          onClick={() => {
+                            setMaintenanceMenuOpen(false)
+                            exportToCSV()
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'transparent',
+                            color: '#111',
+                            border: 'none',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                        >
+                          <span>📥</span> Export CSV
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMaintenanceMenuOpen(false)
+                            exportToJSON()
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'transparent',
+                            color: '#111',
+                            border: 'none',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                        >
+                          <span>📤</span> Export JSON
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMaintenanceMenuOpen(false)
+                            importFromJSON()
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'transparent',
+                            color: '#111',
+                            border: 'none',
+                            padding: '12px 16px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                            transition: 'background 0.2s'
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#f3f4f6'}
+                          onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                        >
+                          <span>📂</span> Import JSON
+                        </button>
+                        <button
+                          onClick={async () => {
+                            setMaintenanceMenuOpen(false)
+                      const initialMissing = countItemsMissingFlavorNotes(inventory)
+
+                      if (initialMissing === 0) {
                         alert('All items already have flavor notes!')
                         return
                       }
 
-                      if (!confirm(`Generate AI flavor notes for ${itemsMissingNotes.length} item(s)?`)) {
+                      const batchSize = 5
+                      const estimatedBatches = Math.ceil(initialMissing / batchSize)
+
+                      if (!confirm(`Generate AI flavor notes for ${initialMissing} item(s)? This will auto-run in batches of ${batchSize} (about ${estimatedBatches} batch(es)).`)) {
                         return
                       }
 
                       setGeneratingNotes(true)
-                      setNoteStatus(`Generating flavor notes for ${itemsMissingNotes.length} item(s)...`)
+                      let currentInventory = ensureInventoryShape(inventory)
+                      let processedCount = 0
+                      let remainingMissing = initialMissing
+                      let iteration = 1
 
                       try {
-                        const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
-                          method: 'POST',
-                          headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ inventory })
-                        })
+                        while (remainingMissing > 0) {
+                          setNoteStatus(`Batch ${iteration}: ${remainingMissing} item(s) still missing notes...`)
 
-                        if (enrichResponse.ok) {
+                          const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ inventory: currentInventory })
+                          })
+
+                          if (!enrichResponse.ok) {
+                            setNoteStatus(`Stopped at batch ${iteration}. ${processedCount} notes generated before error.`)
+                            break
+                          }
+
                           const enrichData = await enrichResponse.json()
-                          const enrichedInventory = ensureInventoryShape(enrichData.inventory || inventory)
-                          setInventory(enrichedInventory)
-                          setNoteStatus('Flavor notes generated! Click Edit to review and save.')
-                        } else {
-                          setNoteStatus('Failed to generate flavor notes. Please try again.')
+                          const updatedInventory = ensureInventoryShape(enrichData.inventory || currentInventory)
+
+                          const newRemaining = countItemsMissingFlavorNotes(updatedInventory)
+                          const generatedThisBatch = Math.max(0, remainingMissing - newRemaining)
+
+                          processedCount += generatedThisBatch
+                          remainingMissing = newRemaining
+                          currentInventory = updatedInventory
+                          setInventory(currentInventory)
+
+                          if (remainingMissing === 0) {
+                            setNoteStatus(`Success: generated and saved ${processedCount} flavor notes!`)
+
+                            await fetch(`${WORKER_URL}/inventory`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ inventory: currentInventory })
+                            })
+
+                            hapticFeedback('success')
+                            break
+                          }
+
+                          await new Promise(resolve => setTimeout(resolve, 700))
+                          iteration += 1
+                        }
+
+                        if (remainingMissing > 0) {
+                          if (processedCount > 0) {
+                            await fetch(`${WORKER_URL}/inventory`, {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ inventory: currentInventory })
+                            })
+                          }
+
+                          setNoteStatus(`${remainingMissing} item(s) still missing notes. Please run again later.`)
+                          hapticFeedback('medium')
                         }
                       } catch (error) {
                         console.error('Failed to generate flavor notes:', error)
-                        setNoteStatus('Failed to generate flavor notes. Please try again.')
+                        setNoteStatus(`Failed after ${processedCount} notes. Please try again.`)
+                        hapticFeedback('error')
                       } finally {
                         setGeneratingNotes(false)
                       }
                     }}
                     disabled={generatingNotes}
                     style={{
-                      background: generatingNotes ? '#a78bfa' : '#8b5cf6',
+                      width: '100%',
+                      background: generatingNotes ? 'transparent' : 'transparent',
+                      color: generatingNotes ? '#a78bfa' : '#111',
+                      border: 'none',
+                      padding: '12px 16px',
+                      borderRadius: '8px',
+                      cursor: generatingNotes ? 'not-allowed' : 'pointer',
+                      fontSize: '14px',
+                      textAlign: 'left',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={(e) => !generatingNotes && (e.target.style.background = '#f3f4f6')}
+                    onMouseLeave={(e) => e.target.style.background = 'transparent'}
+                  >
+                    <span>✨</span> {generatingNotes ? 'Generating...' : 'Generate Flavor Notes'}
+                  </button>
+                      </div>
+                    </>
+                  )}
+
+                  <button
+                    onClick={() => {
+                      hapticFeedback('light')
+                      setMaintenanceMenuOpen(false)
+                      setEditingInventory(true)
+                      setNoteStatus('')
+                    }}
+                    style={{
+                      background: '#667eea',
                       color: 'white',
                       border: 'none',
                       padding: '8px 16px',
                       borderRadius: '8px',
-                      cursor: generatingNotes ? 'not-allowed' : 'pointer',
-                      fontSize: '14px'
-                    }}
-                  >
-                    {generatingNotes ? 'Generating...' : 'Generate Flavor Notes'}
-                  </button>
-                  <button
-                    onClick={() => {
-                      setEditingInventory(true)
-                      setNoteStatus('')
-                    }}
-                  style={{
-                    background: '#667eea',
-                    color: 'white',
-                      border: 'none',
-                      padding: '8px 16px',
-                      borderRadius: '8px',
                       cursor: 'pointer',
-                      fontSize: '14px'
+                      fontSize: '14px',
+                      minHeight: '40px',
+                      fontWeight: '600'
                     }}
                   >
                     Edit
@@ -2046,7 +2751,7 @@ function App() {
                     flexDirection: isMobile ? 'column' : 'row',
                     gap: isMobile ? '8px' : '0'
                   }}>
-                    <span style={{ fontSize: isMobile ? '12px' : '14px' }}>
+                    <span style={{ fontSize: isMobile ? '13px' : '14px' }}>
                       <strong>
                         {item.brand ? `${item.brand} · ${item.name}` : item.name}
                       </strong>
@@ -2055,15 +2760,17 @@ function App() {
                       {item.size && ` - ${item.size}ml`}
                     </span>
                     <button
-                      onClick={() => setShoppingList(shoppingList.filter((_, i) => i !== idx))}
+                      onClick={() => { hapticFeedback('light'); setShoppingList(shoppingList.filter((_, i) => i !== idx)); }}
                       style={{
-                        padding: '4px 8px',
+                        padding: isMobile ? '12px 16px' : '8px 12px',
+                        minHeight: '44px',
+                        minWidth: '44px',
                         background: '#ef4444',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',
                         cursor: 'pointer',
-                        fontSize: isMobile ? '11px' : '12px',
+                        fontSize: isMobile ? '13px' : '13px',
                         whiteSpace: 'nowrap'
                       }}
                     >
@@ -2388,13 +3095,13 @@ function App() {
                                 marginTop: '8px',
                                 flexWrap: 'wrap'
                               }}>
-                                <button onClick={() => quickAdjust(idx, 1)} style={{ fontSize: isMobile ? '10px' : '11px', padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                   -1 oz
                                 </button>
-                                <button onClick={() => quickAdjust(idx, 1.5)} style={{ fontSize: isMobile ? '10px' : '11px', padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1.5); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                   -Shot (1.5oz)
                                 </button>
-                                <button onClick={() => quickAdjust(idx, 2)} style={{ fontSize: isMobile ? '10px' : '11px', padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 2); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                   -2 oz
                                 </button>
                               </div>
@@ -2405,10 +3112,11 @@ function App() {
                                 )
                                 return (stockStatus.level === 'critical' || stockStatus.level === 'low') && (
                                   <button
-                                    onClick={() => addToShoppingList(item)}
+                                    onClick={() => { hapticFeedback('light'); addToShoppingList(item); }}
                                     style={{
-                                      fontSize: isMobile ? '10px' : '11px',
-                                      padding: '4px 8px',
+                                      fontSize: isMobile ? '12px' : '13px',
+                                      padding: isMobile ? '12px 16px' : '8px 12px',
+                                      minHeight: '44px',
                                       background: '#10b981',
                                       color: 'white',
                                       border: 'none',
@@ -2713,13 +3421,13 @@ function App() {
                                       marginTop: '8px',
                                       flexWrap: 'wrap'
                                     }}>
-                                      <button onClick={() => quickAdjust(idx, 1)} style={{ fontSize: isMobile ? '10px' : '11px', padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                      <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                         -1 oz
                                       </button>
-                                      <button onClick={() => quickAdjust(idx, 1.5)} style={{ fontSize: isMobile ? '10px' : '11px', padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                      <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1.5); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                         -Shot (1.5oz)
                                       </button>
-                                      <button onClick={() => quickAdjust(idx, 2)} style={{ fontSize: isMobile ? '10px' : '11px', padding: '4px 8px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                      <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 2); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                                         -2 oz
                                       </button>
                                     </div>
@@ -2730,10 +3438,11 @@ function App() {
                                       )
                                       return (stockStatus.level === 'critical' || stockStatus.level === 'low') && (
                                         <button
-                                          onClick={() => addToShoppingList(item)}
+                                          onClick={() => { hapticFeedback('light'); addToShoppingList(item); }}
                                           style={{
-                                            fontSize: isMobile ? '10px' : '11px',
-                                            padding: '4px 8px',
+                                            fontSize: isMobile ? '12px' : '13px',
+                                            padding: isMobile ? '12px 16px' : '8px 12px',
+                                            minHeight: '44px',
                                             background: '#10b981',
                                             color: 'white',
                                             border: 'none',
@@ -2789,9 +3498,6 @@ function App() {
       {currentView === 'recipes' && (
         // Recipes View
         <div
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          onTouchEnd={onTouchEnd}
           style={{
             flex: 1,
             overflowY: 'auto',
@@ -2864,6 +3570,145 @@ function App() {
             )}
           </div>
         </div>
+      )}
+
+      {/* #9: Floating Action Button (FAB) */}
+      {isMobile && !fabMenuOpen && (
+        <button
+          onClick={() => {
+            hapticFeedback('medium')
+            setFabMenuOpen(true)
+          }}
+          style={{
+            position: 'fixed',
+            bottom: 'calc(96px + env(safe-area-inset-bottom))',
+            right: '24px',
+            width: '56px',
+            height: '56px',
+            borderRadius: '50%',
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            border: 'none',
+            fontSize: '24px',
+            cursor: 'pointer',
+            boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+            zIndex: 1000,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'transform 0.2s ease',
+            transform: fabMenuOpen ? 'rotate(45deg)' : 'rotate(0deg)'
+          }}
+        >
+          +
+        </button>
+      )}
+
+      {/* #9: FAB Quick Action Menu */}
+      {isMobile && fabMenuOpen && (
+        <>
+          {/* Backdrop */}
+          <div
+            onClick={() => {
+              hapticFeedback('light')
+              setFabMenuOpen(false)
+            }}
+            style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(0, 0, 0, 0.5)',
+              zIndex: 999,
+              animation: 'fadeIn 0.2s ease'
+            }}
+          />
+
+          {/* Action buttons */}
+          <div style={{
+            position: 'fixed',
+            bottom: 'calc(96px + env(safe-area-inset-bottom))',
+            right: '24px',
+            zIndex: 1001,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '16px',
+            alignItems: 'flex-end'
+          }}>
+            <button
+              onClick={() => {
+                hapticFeedback('light')
+                setFabMenuOpen(false)
+                openAddItemModal()
+              }}
+              style={{
+                padding: '12px 20px',
+                background: '#10b981',
+                color: 'white',
+                border: 'none',
+                borderRadius: '24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                minHeight: '44px',
+                whiteSpace: 'nowrap',
+                animation: 'slideUp 0.2s ease'
+              }}
+            >
+              📦 Add Inventory
+            </button>
+            <button
+              onClick={() => {
+                hapticFeedback('light')
+                setFabMenuOpen(false)
+                setCurrentView('chat')
+                setInput('What cocktail can I make?')
+              }}
+              style={{
+                padding: '12px 20px',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '24px',
+                fontSize: '14px',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(59, 130, 246, 0.3)',
+                minHeight: '44px',
+                whiteSpace: 'nowrap',
+                animation: 'slideUp 0.25s ease'
+              }}
+            >
+              🍹 Ask for Cocktail
+            </button>
+            <button
+              onClick={() => {
+                hapticFeedback('medium')
+                setFabMenuOpen(false)
+              }}
+              style={{
+                width: '56px',
+                height: '56px',
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                color: 'white',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                transform: 'rotate(45deg)',
+                animation: 'slideUp 0.3s ease'
+              }}
+            >
+              +
+            </button>
+          </div>
+        </>
       )}
 
       {/* Add Inventory Modal */}

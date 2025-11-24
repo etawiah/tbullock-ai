@@ -53,6 +53,16 @@
     .moon-icon {
       font-size: 2.5em;
       margin-bottom: 10px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .moon-icon img {
+      width: 1em;
+      height: 1em;
+      object-fit: contain;
+      animation: float 3s ease-in-out infinite;
     }
 
     .subtitle {
@@ -162,17 +172,14 @@
       0%, 100% { transform: translateY(0px); }
       50% { transform: translateY(-10px); }
     }
-
-    .moon-icon {
-      animation: float 3s ease-in-out infinite;
-      display: inline-block;
-    }
   </style>
 </head>
 <body>
   <div class="container">
     <div class="header">
-      <div class="moon-icon">🌙</div>
+      <div class="moon-icon" aria-hidden="true">
+        <img src="./purple-moon-logo.png" alt="" />
+      </div>
       <h1 class="bar-name">PURPLE MOONZ</h1>
       <p class="subtitle">Signature Cocktail Menu</p>
     </div>

@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "deploy": "npm run build && wrangler pages deploy dist",
+    "deploy": "npm run deploy:app && npm run deploy:menu",
+    "deploy:app": "npm run build && wrangler pages deploy dist --project-name=ai-bartender",
+    "deploy:menu": "wrangler pages deploy barmenu-public --project-name=barmenu",
     "worker:dev": "wrangler dev worker/worker.js",
     "worker:deploy": "wrangler deploy"
   },
@@ -18,6 +20,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "sharp": "^0.34.5",
     "vite": "^5.4.11"
   },
   "keywords": [

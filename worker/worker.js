@@ -4,8 +4,66 @@
 
 const flavorNotesCache = new Map();
 
+const sanitizeSecret = (value) => {
+  if (typeof value !== 'string') return '';
+  return value.trim().replace(/\s+/g, '');
+};
+
+const hasGeminiKey = (env) => Boolean(sanitizeSecret(env.GEMINI_API_KEY));
+const hasGroqKey = (env) => Boolean(sanitizeSecret(env.GROQ_API_KEY));
+
+const formatProviderError = (error) => {
+  if (!error) return 'Unknown error';
+  const status = typeof error.status !== 'undefined' ? `status ${error.status}` : '';
+  if (error.body) return `${status} ${error.body}`.trim();
+  if (error.message) return `${status} ${error.message}`.trim();
+  return status || 'Unknown error';
+};
+
+const getGroqModel = (env, hint = 'instant') => {
+  const instantDefault = sanitizeSecret(env.GROQ_MODEL) || 'llama-3.1-8b-instant';
+  const versatileDefault = sanitizeSecret(env.GROQ_MODEL_VERSATILE) || instantDefault;
+  if (hint === 'versatile' && versatileDefault) {
+    return versatileDefault;
+  }
+  return instantDefault;
+};
+
+const shouldUseVersatileChat = (message = '', chatHistory = []) => {
+  const combined = [message, ...chatHistory.slice(-2).map(entry => entry?.content || '')]
+    .join(' ')
+    .toLowerCase();
+
+  const heavyKeywords = [
+    'menu', 'pairing', 'pairings', 'substitution', 'substitute', 'swap',
+    'alternative', 'cost', 'pricing', 'per drink', 'calorie', 'calories',
+    'nutrition', 'batch', 'scaling', 'scale', 'plan', 'planning', 'regional',
+    'style', 'theme', 'zero-proof', 'mocktail', 'family', 'json', 'schema',
+    'table', 'shopping list', 'inventory update', 'detailed steps', 'constraints'
+  ];
+
+  const quickKeywords = [
+    'glassware', 'convert', 'conversion', 'abv', 'math', 'falernum',
+    'what to do with', 'autocomplete', 'quick', 'simple', 'fast'
+  ];
+
+  const hasHeavyKeyword = heavyKeywords.some(keyword => combined.includes(keyword));
+  const hasQuickKeyword = quickKeywords.some(keyword => combined.includes(keyword));
+  const isLongPrompt = combined.length > 600 || (message && message.split(/\s+/).length > 120);
+
+  if (hasHeavyKeyword || isLongPrompt) return true;
+  if (hasQuickKeyword) return false;
+  return false;
+};
+
 async function callGemini(payload, env) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`;
+  const apiKey = sanitizeSecret(env.GEMINI_API_KEY);
+  if (!apiKey) {
+    const error = new Error('Gemini API key not configured');
+    error.status = 401;
+    throw error;
+  }
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`;
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -22,15 +80,22 @@ async function callGemini(payload, env) {
 }
 
 async function callGroq(messages, env, options = {}) {
+  const apiKey = sanitizeSecret(env.GROQ_API_KEY);
+  if (!apiKey) {
+    const error = new Error('Groq API key not configured');
+    error.status = 401;
+    throw error;
+  }
   const url = 'https://api.groq.com/openai/v1/chat/completions';
+  const model = options.modelOverride || getGroqModel(env, options.modelHint);
   const response = await fetch(url, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${env.GROQ_API_KEY}`
+      'Authorization': `Bearer ${apiKey}`
     },
     body: JSON.stringify({
-      model: env.GROQ_MODEL || 'llama-3-70b-8192',
+      model,
       temperature: options.temperature ?? 0.6,
       max_tokens: options.maxTokens ?? 400,
       messages
@@ -89,7 +154,19 @@ export default {
       // Route: Enrich inventory with flavor notes
       if (url.pathname === '/api/enrich-inventory' && request.method === 'POST') {
         const forceProvider = url.searchParams.get('provider') || 'auto';
+        const debugMode = url.searchParams.get('debug') === '1';
         const { inventory } = await request.json();
+        const debugTrace = [];
+
+        const recordTrace = (itemName, provider, outcome, detail) => {
+          if (!debugMode) return;
+          debugTrace.push({
+            item: itemName || 'Unnamed item',
+            provider,
+            outcome,
+            detail
+          });
+        };
 
         if (!Array.isArray(inventory)) {
           return new Response(JSON.stringify({ inventory: [] }), {
@@ -100,7 +177,11 @@ export default {
         // Attach client indexes so we can re-map confidently
         const indexedInventory = inventory.map((item, index) => ({ ...item, __index: index }));
 
+        const skippedTypes = new Set(['tool', 'other']);
         const itemsThatNeedNotes = indexedInventory.filter(item => {
+          if (skippedTypes.has((item.type || '').toLowerCase())) {
+            return false;
+          }
           const hasName = item.name && item.name.trim().length > 0;
           const hasNotes = item.flavorNotes && item.flavorNotes.trim().length > 0;
           return hasName && !hasNotes;
@@ -156,6 +237,7 @@ export default {
                 if (!text) {
                   throw new Error('Gemini returned empty flavor notes');
                 }
+                recordTrace(friendlyName, 'gemini', 'success', `Generated ${text.length} chars`);
                 return text;
               };
 
@@ -163,33 +245,59 @@ export default {
                 const groqData = await callGroq([
                   { role: 'system', content: 'You are a spirits sommelier who writes short tasting notes.' },
                   { role: 'user', content: prompt }
-                ], env, { temperature: 0.6, maxTokens: 160 });
+                ], env, { temperature: 0.6, maxTokens: 160, modelHint: 'instant' });
                 const text = (groqData?.choices?.[0]?.message?.content || '').trim();
                 if (!text) {
                   throw new Error('Groq returned empty flavor notes');
                 }
+                recordTrace(friendlyName, 'groq', 'success', `Generated ${text.length} chars`);
                 return text;
               };
 
               const runProviders = async () => {
-                if (shouldUseGroqFirst) {
+                const providerOrder = (() => {
+                  const order = [];
+                  if (shouldUseGroqFirst) {
+                    if (hasGroqKey(env)) order.push('groq');
+                    if (hasGeminiKey(env)) order.push('gemini');
+                  } else {
+                    if (hasGeminiKey(env)) order.push('gemini');
+                    if (hasGroqKey(env)) order.push('groq');
+                  }
+                  return order;
+                })();
+
+                if (providerOrder.length === 0) {
+                  const message = 'No AI providers configured. Please set GEMINI_API_KEY or GROQ_API_KEY.';
+                  recordTrace(friendlyName, 'none', 'error', message);
+                  throw new Error(message);
+                }
+
+                const errors = [];
+
+                for (const provider of providerOrder) {
                   try {
+                    if (provider === 'gemini') {
+                      return await tryGemini();
+                    }
                     return await tryGroq();
-                  } catch (groqError) {
-                    console.error(`Groq (forced) flavor note error for ${friendlyName}:`, groqError.status, groqError.body || groqError.message);
-                    throw groqError;
+                  } catch (error) {
+                    const providerName = provider === 'gemini' ? 'Gemini' : 'Groq';
+                    const formatted = formatProviderError(error);
+                    errors.push(`${providerName}: ${formatted}`);
+                    recordTrace(friendlyName, provider, 'error', formatted);
+
+                    if (error.status === 429) {
+                      console.error(`${providerName} rate limit exceeded for ${friendlyName}`);
+                    } else if (error.status >= 500) {
+                      console.error(`${providerName} server error ${error.status} for ${friendlyName}`);
+                    } else {
+                      console.error(`${providerName} error for ${friendlyName}:`, error.status, error.body || error.message);
+                    }
                   }
                 }
 
-                try {
-                  return await tryGemini();
-                } catch (geminiError) {
-                  console.error(`Gemini flavor note error for ${friendlyName}:`, geminiError.status, geminiError.body || geminiError.message);
-                  if (geminiError.status === 429) {
-                    console.error('Gemini quota exceeded – using Groq fallback');
-                  }
-                  return await tryGroq();
-                }
+                throw new Error(`All AI providers failed for ${friendlyName}: ${errors.join('; ')}`);
               };
 
               flavorNotes = await runProviders();
@@ -222,7 +330,17 @@ export default {
           return rest;
         });
 
-        return new Response(JSON.stringify({ inventory: enrichedInventory }), {
+        const responseBody = { inventory: enrichedInventory };
+        if (debugMode) {
+          responseBody.debug = {
+            requestedItems: indexedInventory.length,
+            itemsNeedingNotes: itemsThatNeedNotes.length,
+            itemsEnriched: enrichedItems.length,
+            trace: debugTrace
+          };
+        }
+
+        return new Response(JSON.stringify(responseBody), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -427,36 +545,71 @@ Did you make this drink?"
         };
 
         let aiResponse = '';
+        const providerOrder = [];
+        if (hasGeminiKey(env)) providerOrder.push('gemini');
+        if (hasGroqKey(env)) providerOrder.push('groq');
 
-        try {
-          const geminiData = await callGemini(geminiPayload, env);
-          aiResponse = extractGeminiText(geminiData);
-          if (!aiResponse) {
-            throw new Error('Gemini returned empty response');
-          }
-        } catch (geminiError) {
-          console.error('Gemini chat error:', geminiError.status, geminiError.body || geminiError.message);
-          if (geminiError.status === 429) {
-            console.error('Gemini quota exceeded – using Groq fallback');
-          }
+        if (providerOrder.length === 0) {
+          return new Response(
+            JSON.stringify({
+              error: 'AI providers are not configured. Please add GEMINI_API_KEY or GROQ_API_KEY.',
+              details: 'No AI providers configured'
+            }),
+            {
+              status: 503,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+
+        const prefersVersatile = shouldUseVersatileChat(message, chatHistory || []);
+        const groqOptions = {
+          temperature: prefersVersatile ? 0.4 : 0.3,
+          maxTokens: prefersVersatile ? 1500 : 900,
+          modelHint: prefersVersatile ? 'versatile' : 'instant'
+        };
+
+        const providerErrors = [];
+
+        for (const provider of providerOrder) {
           try {
-            const groqData = await callGroq(groqMessages, env, { temperature: 0.3, maxTokens: 1024 });
-            aiResponse = (groqData?.choices?.[0]?.message?.content || '').trim();
-          } catch (groqError) {
-            console.error('Groq chat error:', groqError.status, groqError.body || groqError.message);
-            return new Response(
-              JSON.stringify({ error: 'AI service unavailable. Please try again.' }),
-              {
-                status: 500,
-                headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            if (provider === 'gemini') {
+              const geminiData = await callGemini(geminiPayload, env);
+              aiResponse = extractGeminiText(geminiData);
+              if (!aiResponse) {
+                throw new Error('Gemini returned empty response');
               }
-            );
+              break;
+            } else {
+              console.log(`Using Groq chat with ${prefersVersatile ? 'versatile' : 'instant'} model`);
+              const groqData = await callGroq(groqMessages, env, groqOptions);
+              aiResponse = (groqData?.choices?.[0]?.message?.content || '').trim();
+              if (!aiResponse) {
+                throw new Error('Groq returned empty response');
+              }
+              break;
+            }
+          } catch (providerError) {
+            const providerName = provider === 'gemini' ? 'Gemini' : 'Groq';
+            const formattedError = formatProviderError(providerError);
+            providerErrors.push(`${providerName}: ${formattedError}`);
+
+            if (providerError.status === 429) {
+              console.error(`${providerName} chat rate limit exceeded`);
+            } else if (providerError.status >= 500) {
+              console.error(`${providerName} chat server error ${providerError.status}`);
+            } else {
+              console.error(`${providerName} chat error:`, providerError.status, providerError.body || providerError.message);
+            }
           }
         }
 
         if (!aiResponse) {
           return new Response(
-            JSON.stringify({ error: 'AI service unavailable. Please try again.' }),
+            JSON.stringify({
+              error: 'AI service unavailable. Please try again.',
+              details: providerErrors.join('; ')
+            }),
             {
               status: 500,
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
