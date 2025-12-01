@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, memo } from 'react'
+import MenuEditor from './components/MenuEditor'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -2106,6 +2107,26 @@ function App() {
           >
             Favorites ({customRecipes.length})
           </button>
+          <button
+            onClick={() => setCurrentView('menu')}
+            style={{
+              flex: 1,
+              padding: '12px',
+              minHeight: '48px',
+              background: currentView === 'menu' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+              border: 'none',
+              color: 'white',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: currentView === 'menu' ? '600' : '400',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            📋 Menu
+          </button>
         </div>
       </div>
 
@@ -3709,6 +3730,15 @@ function App() {
             </button>
           </div>
         </>
+      )}
+
+      {/* Menu Editor View */}
+      {currentView === 'menu' && (
+        <MenuEditor
+          inventory={inventory}
+          customRecipes={customRecipes}
+          onClose={() => setCurrentView('chat')}
+        />
       )}
 
       {/* Add Inventory Modal */}

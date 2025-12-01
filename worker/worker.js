@@ -715,9 +715,268 @@ Did you make this drink?"
         }
       }
 
-      return new Response('Not Found', { 
+      // ========== MENU ENDPOINTS ==========
+
+      // GET /api/menu - Public menu (no auth required)
+      if (url.pathname === '/api/menu' && request.method === 'GET') {
+        try {
+          const menu = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
+
+          if (!menu) {
+            return new Response(JSON.stringify({
+              id: 'menu-primary',
+              items: [],
+              version: 0,
+              updatedAt: new Date().toISOString()
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Filter to active items only for public menu
+          const publicItems = menu.items.filter(item => item.status === 'active').map(item => ({
+            id: item.id,
+            name: item.name,
+            description: item.description,
+            primarySpirit: item.primarySpirit,
+            tags: item.tags || []
+          }));
+
+          return new Response(JSON.stringify({
+            id: menu.id,
+            items: publicItems,
+            version: menu.version,
+            updatedAt: menu.updatedAt
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Menu GET error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to load menu',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // POST /api/menu - Save menu (admin only, requires Cloudflare Access)
+      if (url.pathname === '/api/menu' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { items, version } = body;
+
+          // Validate menu structure
+          if (!Array.isArray(items)) {
+            return new Response(JSON.stringify({
+              error: 'Invalid menu structure',
+              details: 'items must be an array'
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Get current menu to check version
+          const currentMenu = await env.BARTENDER_KV.get('menu:live', { type: 'json' }) || {
+            id: 'menu-primary',
+            items: [],
+            version: 0
+          };
+
+          // Optimistic concurrency control: if version doesn't match, reject
+          if (version && version !== currentMenu.version) {
+            return new Response(JSON.stringify({
+              error: 'Version conflict',
+              details: `Expected version ${currentMenu.version}, got ${version}`,
+              currentVersion: currentMenu.version
+            }), {
+              status: 409,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Create new menu with incremented version
+          const newVersion = currentMenu.version + 1;
+          const userEmail = request.headers.get('cf-access-authenticated-user-email') || 'system';
+
+          const newMenu = {
+            id: 'menu-primary',
+            items: items.map((item, idx) => ({
+              ...item,
+              version: item.version || 1,
+              updatedAt: new Date().toISOString(),
+              updatedBy: userEmail
+            })),
+            version: newVersion,
+            updatedAt: new Date().toISOString(),
+            updatedBy: userEmail
+          };
+
+          // Save to menu:live
+          await env.BARTENDER_KV.put('menu:live', JSON.stringify(newMenu));
+
+          // Create snapshot
+          await env.BARTENDER_KV.put(
+            `menu:snapshot:v${newVersion}`,
+            JSON.stringify(newMenu)
+          );
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Menu saved successfully',
+            version: newVersion,
+            updatedAt: newMenu.updatedAt
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Menu POST error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to save menu',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // GET /api/menu/admin - Full menu for admin (requires Cloudflare Access)
+      if (url.pathname === '/api/menu/admin' && request.method === 'GET') {
+        try {
+          const menu = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
+
+          if (!menu) {
+            return new Response(JSON.stringify({
+              id: 'menu-primary',
+              items: [],
+              version: 0,
+              updatedAt: new Date().toISOString()
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          return new Response(JSON.stringify(menu), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Menu admin GET error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to load admin menu',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // GET /api/menu/snapshots - List available menu snapshots (admin only)
+      if (url.pathname === '/api/menu/snapshots' && request.method === 'GET') {
+        try {
+          const currentMenu = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
+          const snapshots = [];
+
+          // Try to load snapshots (we'll check up to 20 versions back)
+          for (let i = currentMenu?.version || 0; i >= Math.max(1, (currentMenu?.version || 1) - 20); i--) {
+            try {
+              const snapshot = await env.BARTENDER_KV.get(`menu:snapshot:v${i}`, { type: 'json' });
+              if (snapshot) {
+                snapshots.push({
+                  version: i,
+                  updatedAt: snapshot.updatedAt,
+                  updatedBy: snapshot.updatedBy,
+                  itemCount: snapshot.items?.length || 0
+                });
+              }
+            } catch (e) {
+              // Snapshot doesn't exist, continue
+            }
+          }
+
+          return new Response(JSON.stringify({
+            snapshots: snapshots.sort((a, b) => b.version - a.version)
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Snapshots error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to load snapshots',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // POST /api/menu/rollback/{version} - Restore menu snapshot (admin only)
+      if (url.pathname.match(/^\/api\/menu\/rollback\/\d+$/) && request.method === 'POST') {
+        try {
+          const version = parseInt(url.pathname.split('/').pop());
+          const snapshot = await env.BARTENDER_KV.get(`menu:snapshot:v${version}`, { type: 'json' });
+
+          if (!snapshot) {
+            return new Response(JSON.stringify({
+              error: 'Snapshot not found',
+              details: `No snapshot exists for version ${version}`
+            }), {
+              status: 404,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Get current menu to get next version
+          const currentMenu = await env.BARTENDER_KV.get('menu:live', { type: 'json' }) || {
+            version: 0
+          };
+          const newVersion = currentMenu.version + 1;
+          const userEmail = request.headers.get('cf-access-authenticated-user-email') || 'system';
+
+          // Create restored menu with new version
+          const restoredMenu = {
+            ...snapshot,
+            version: newVersion,
+            updatedAt: new Date().toISOString(),
+            updatedBy: userEmail
+          };
+
+          // Save as new version
+          await env.BARTENDER_KV.put('menu:live', JSON.stringify(restoredMenu));
+          await env.BARTENDER_KV.put(
+            `menu:snapshot:v${newVersion}`,
+            JSON.stringify(restoredMenu)
+          );
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: `Restored from version ${version}`,
+            restoredFromVersion: version,
+            newVersion: newVersion,
+            updatedAt: restoredMenu.updatedAt
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Rollback error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to rollback menu',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      return new Response('Not Found', {
         status: 404,
-        headers: corsHeaders 
+        headers: corsHeaders
       });
 
     } catch (error) {

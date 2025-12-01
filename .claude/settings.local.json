@@ -39,7 +39,10 @@
       "WebFetch(domain:236626d7.ai-bartender.pages.dev)",
       "Bash(npx eslint:*)",
       "Bash(npx wrangler:*)",
-      "Bash(git log:*)"
+      "Bash(git log:*)",
+      "Bash(wrangler kv:key list:*)",
+      "Bash(wrangler kv list:*)",
+      "Bash(wrangler kv key:*)"
     ],
     "deny": [],
     "ask": []
