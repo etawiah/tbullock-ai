@@ -12,12 +12,51 @@ const sanitizeSecret = (value) => {
 const hasGeminiKey = (env) => Boolean(sanitizeSecret(env.GEMINI_API_KEY));
 const hasGroqKey = (env) => Boolean(sanitizeSecret(env.GROQ_API_KEY));
 
+const MAX_INVENTORY_ITEMS = 60;
+const MAX_INVENTORY_CHARS = 6000;
+const MAX_NOTES_LENGTH = 160;
+
 const formatProviderError = (error) => {
   if (!error) return 'Unknown error';
   const status = typeof error.status !== 'undefined' ? `status ${error.status}` : '';
   if (error.body) return `${status} ${error.body}`.trim();
   if (error.message) return `${status} ${error.message}`.trim();
   return status || 'Unknown error';
+};
+
+const cleanText = (value = '') => String(value).replace(/\s+/g, ' ').trim();
+
+const formatInventoryForPrompt = (inventory = []) => {
+  if (!Array.isArray(inventory) || inventory.length === 0) {
+    return 'No items in inventory';
+  }
+
+  const trimmedItems = inventory.slice(0, MAX_INVENTORY_ITEMS);
+  const inventoryLines = trimmedItems.map((item) => {
+    const typeLabel = item.type ? `${cleanText(item.type)}: ` : '';
+    const nameLabel = cleanText(item.name || 'Unnamed bottle');
+    const brandLabel = item.brand ? `${cleanText(item.brand)} ` : '';
+    const proofLabel = item.proof ? `${cleanText(item.proof)} proof` : 'proof unknown';
+    const sizeLabel = item.bottleSizeMl ? `${cleanText(item.bottleSizeMl)} ml` : 'size unknown';
+    const remainingLabel = item.amountRemaining ? `${cleanText(item.amountRemaining)} ml remaining` : 'remaining amount unknown';
+    const notesLabel = item.flavorNotes
+      ? `Notes: ${cleanText(item.flavorNotes).slice(0, MAX_NOTES_LENGTH)}`
+      : '';
+
+    return `- ${typeLabel}${brandLabel}${nameLabel} | ${proofLabel} | ${sizeLabel} | ${remainingLabel}${notesLabel ? ` | ${notesLabel}` : ''}`;
+  }).join('\\n');
+
+  let text = inventoryLines;
+  if (text.length > MAX_INVENTORY_CHARS) {
+    text = `${text.slice(0, MAX_INVENTORY_CHARS)}...`;
+  }
+
+  const omittedCount = Math.max(0, inventory.length - trimmedItems.length);
+  if (omittedCount > 0) {
+    text += `\\n...and ${omittedCount} more items not shown`;
+  }
+
+  return text;
 };
 
 const getGroqModel = (env, hint = 'instant') => {
@@ -419,23 +458,14 @@ export default {
           const { message, inventory, chatHistory } = await request.json();
 
         // Build system prompt with bartender expertise
+        const inventoryPrompt = formatInventoryForPrompt(inventory || []);
         const systemPrompt = `You are a bartender AI assistant. When asked for a drink, your job is to:
 1. Find the recipe and provide it immediately using the customer's available ingredients
 2. Tell them exactly how to make it with what they have
 3. If you need to substitute ingredients, state the substitutions clearly
 
 CURRENT BAR INVENTORY:
-${inventory.length > 0
-  ? inventory.map(item => {
-      const typeLabel = item.type ? `${item.type}: ` : ''
-      const nameLabel = item.name || 'Unnamed bottle'
-      const proofLabel = item.proof ? `${item.proof} proof` : 'proof unknown'
-      const sizeLabel = item.bottleSizeMl ? `${item.bottleSizeMl} ml bottle` : 'bottle size unknown'
-      const remainingLabel = item.amountRemaining ? `${item.amountRemaining} ml remaining` : 'remaining amount unknown'
-      const notesLabel = item.flavorNotes ? `Notes: ${item.flavorNotes}` : ''
-      return `- ${typeLabel}${nameLabel} | ${proofLabel} | ${sizeLabel} | ${remainingLabel}${notesLabel ? ` | ${notesLabel}` : ''}`
-    }).join('\n')
-  : 'No items in inventory'}
+${inventoryPrompt}
 
 NON-NEGOTIABLE RULES:
 1. When asked for a drink by name, IMMEDIATELY provide the recipe. DO NOT ask questions about what they mean or want more context. Just give the recipe.
@@ -509,7 +539,7 @@ Instructions:
 Did you make this drink?"
 `;
 
-        const recentHistory = chatHistory.slice(-6);
+        const recentHistory = Array.isArray(chatHistory) ? chatHistory.slice(-6) : [];
         const geminiContents = [
           {
             role: 'user',

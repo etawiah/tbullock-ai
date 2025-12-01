@@ -1,13 +1,26 @@
 name = "bartender-api"
-main = "worker/worker.js"
+main = "worker/worker.ts"
 compatibility_date = "2024-01-01"
+type = "service"
 
-# KV Namespace for storing inventory
+# TypeScript configuration
+[env.production]
+name = "bartender-api"
+main = "worker/worker.ts"
+
+[env.development]
+name = "bartender-api-dev"
+main = "worker/worker.ts"
+vars = { ENVIRONMENT = "development" }
+
+# KV Namespace for storing inventory, recipes, favorites, menu, chat history
 # Run: wrangler kv:namespace create "BARTENDER_KV"
 # Then replace the id below with the one it gives you
 [[kv_namespaces]]
 binding = "BARTENDER_KV"
 id = "d55eed47007140c0be8b759b3789bfbd"
+preview_id = "d55eed47007140c0be8b759b3789bfbd"
 
 # Secrets (set these with: wrangler secret put GEMINI_API_KEY)
-# GEMINI_API_KEY - Your Google Gemini API key
+# GEMINI_API_KEY - Your Google Gemini API key (required for chat endpoint)
+# GROQ_API_KEY - Your Groq API key (optional, used as fallback for chat)
