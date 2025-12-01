@@ -59,6 +59,31 @@ const formatInventoryForPrompt = (inventory = []) => {
   return text;
 };
 
+const formatMenuForPrompt = (menu = null) => {
+  if (!menu || !Array.isArray(menu.items) || menu.items.length === 0) {
+    return 'No published menu available';
+  }
+
+  const activeItems = menu.items.filter(item => item.status === 'active');
+  if (activeItems.length === 0) {
+    return 'No active menu items';
+  }
+
+  const grouped = {};
+  activeItems.forEach(item => {
+    const spirit = item.primarySpirit || 'other';
+    if (!grouped[spirit]) grouped[spirit] = [];
+    grouped[spirit].push(item.name);
+  });
+
+  let menuText = 'Published Menu Items:\n';
+  Object.entries(grouped).forEach(([spirit, items]) => {
+    menuText += `${spirit.charAt(0).toUpperCase() + spirit.slice(1)}: ${items.join(', ')}\n`;
+  });
+
+  return menuText;
+};
+
 const getGroqModel = (env, hint = 'instant') => {
   const instantDefault = sanitizeSecret(env.GROQ_MODEL) || 'llama-3.1-8b-instant';
   const versatileDefault = sanitizeSecret(env.GROQ_MODEL_VERSATILE) || instantDefault;
@@ -459,22 +484,37 @@ export default {
 
         // Build system prompt with bartender expertise
         const inventoryPrompt = formatInventoryForPrompt(inventory || []);
+
+        // Load published menu
+        let menuPrompt = 'No published menu available';
+        try {
+          const menuData = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
+          if (menuData) {
+            menuPrompt = formatMenuForPrompt(menuData);
+          }
+        } catch (e) {
+          console.error('Failed to load menu for chat:', e);
+        }
+
         const systemPrompt = `You are a bartender AI assistant. When asked for a drink, your job is to:
 1. Find the recipe and provide it immediately using the customer's available ingredients
 2. Tell them exactly how to make it with what they have
 3. If you need to substitute ingredients, state the substitutions clearly
+
+${menuPrompt}
 
 CURRENT BAR INVENTORY:
 ${inventoryPrompt}
 
 NON-NEGOTIABLE RULES:
 1. When asked for a drink by name, IMMEDIATELY provide the recipe. DO NOT ask questions about what they mean or want more context. Just give the recipe.
-2. If you don't know a specific drink name, DO NOT ask clarifying questions. Instead, IMMEDIATELY suggest 2-3 similar classic drinks you can make from their inventory.
-3. If they're missing key ingredients, state what's missing and suggest a close substitute using what they have OR suggest a different drink entirely.
-4. NEVER have conversations about beauty, aesthetics, or philosophy. Just give recipes.
-5. Keep responses UNDER 150 words unless providing a recipe.
-6. ALWAYS list what tools and glassware they need from their available inventory.
-7. After giving a recipe, ask if they made it so you can update inventory.
+2. **IMPORTANT**: If the drink name matches any item in the Published Menu Items list above, use that recipe exactly. These are already-designed menu items the bartender has crafted and tested.
+3. If you don't know a specific drink name, DO NOT ask clarifying questions. Instead, IMMEDIATELY suggest 2-3 similar classic drinks you can make from their inventory.
+4. If they're missing key ingredients, state what's missing and suggest a close substitute using what they have OR suggest a different drink entirely.
+5. NEVER have conversations about beauty, aesthetics, or philosophy. Just give recipes.
+6. Keep responses UNDER 150 words unless providing a recipe.
+7. ALWAYS list what tools and glassware they need from their available inventory.
+8. After giving a recipe, ask if they made it so you can update inventory.
 
 MANDATORY RESPONSE FORMAT:
 When user asks for a drink, respond in EXACTLY this format:
