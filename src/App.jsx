@@ -190,6 +190,8 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
   const [glass, setGlass] = useState(recipe?.glass || '')
   const [garnish, setGarnish] = useState(recipe?.garnish || '')
   const [tags, setTags] = useState(recipe?.tags || '')
+  const [menuDescription, setMenuDescription] = useState(recipe?.menuDescription || '')
+  const [primarySpirit, setPrimarySpirit] = useState(recipe?.primarySpirit || 'other')
 
   const inventoryOptions = (() => {
     const seen = new Set()
@@ -250,6 +252,8 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
       glass: glass.trim(),
       garnish: garnish.trim(),
       tags: tags.trim(),
+      menuDescription: menuDescription.trim(),
+      primarySpirit: primarySpirit,
       created: recipe?.created || Date.now()
     }
     onSave(recipeData)
@@ -386,6 +390,38 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
           placeholder="e.g., vodka, martini, craft"
           style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
         />
+      </div>
+
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Primary Spirit (for menu categorization)</label>
+        <select
+          value={primarySpirit}
+          onChange={(e) => setPrimarySpirit(e.target.value)}
+          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px' }}
+        >
+          <option value="vodka">Vodka</option>
+          <option value="gin">Gin</option>
+          <option value="rum">Rum</option>
+          <option value="tequila">Tequila</option>
+          <option value="whiskey">Whiskey</option>
+          <option value="brandy">Brandy</option>
+          <option value="liqueur">Liqueur / Cordial</option>
+          <option value="wine">Wine</option>
+          <option value="beer">Beer</option>
+          <option value="mixer">Mixer</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div style={{ marginBottom: '16px' }}>
+        <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '4px' }}>Menu Description (what guests see on bar menu)</label>
+        <textarea
+          value={menuDescription}
+          onChange={(e) => setMenuDescription(e.target.value)}
+          placeholder="e.g., A bright, refreshing Limoncello and tonic with a citrus twist"
+          style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #d1d5db', fontSize: '14px', minHeight: '60px', fontFamily: 'inherit' }}
+        />
+        <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>Tip: Write a short, guest-friendly description (not the instructions)</div>
       </div>
 
       <div style={{ display: 'flex', gap: '8px' }}>

@@ -802,7 +802,149 @@ Did you make this drink?"
         }
       }
 
-      // POST /api/menu - Save menu (admin only, requires Cloudflare Access)
+      // POST /api/menu/draft - Save draft (admin only, requires Cloudflare Access)
+      if (url.pathname === '/api/menu/draft' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { items } = body;
+
+          // Validate menu structure
+          if (!Array.isArray(items)) {
+            return new Response(JSON.stringify({
+              error: 'Invalid menu structure',
+              details: 'items must be an array'
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          const userEmail = request.headers.get('cf-access-authenticated-user-email') || 'system';
+
+          const draftMenu = {
+            id: 'menu-draft',
+            items: items.map((item) => ({
+              ...item,
+              updatedAt: new Date().toISOString(),
+              updatedBy: userEmail
+            })),
+            version: 0,
+            draftAt: new Date().toISOString(),
+            draftBy: userEmail
+          };
+
+          // Save draft (no version increment, just overwrite)
+          await env.BARTENDER_KV.put('menu:draft', JSON.stringify(draftMenu));
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Draft saved',
+            savedAt: draftMenu.draftAt
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Menu draft POST error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to save draft',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // POST /api/menu/publish - Publish draft to live (admin only, requires Cloudflare Access)
+      if (url.pathname === '/api/menu/publish' && request.method === 'POST') {
+        try {
+          const body = await request.json();
+          const { items, version } = body;
+
+          // Validate menu structure
+          if (!Array.isArray(items)) {
+            return new Response(JSON.stringify({
+              error: 'Invalid menu structure',
+              details: 'items must be an array'
+            }), {
+              status: 400,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Get current menu to check version
+          const currentMenu = await env.BARTENDER_KV.get('menu:live', { type: 'json' }) || {
+            id: 'menu-primary',
+            items: [],
+            version: 0
+          };
+
+          // Optimistic concurrency control: if version doesn't match, reject
+          if (version && version !== currentMenu.version) {
+            return new Response(JSON.stringify({
+              error: 'Version conflict',
+              details: `Expected version ${currentMenu.version}, got ${version}`,
+              currentVersion: currentMenu.version
+            }), {
+              status: 409,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          // Create new menu with incremented version
+          const newVersion = currentMenu.version + 1;
+          const userEmail = request.headers.get('cf-access-authenticated-user-email') || 'system';
+
+          const newMenu = {
+            id: 'menu-primary',
+            items: items.map((item) => ({
+              ...item,
+              version: item.version || 1,
+              publishedAt: new Date().toISOString(),
+              publishedBy: userEmail
+            })),
+            version: newVersion,
+            publishedAt: new Date().toISOString(),
+            publishedBy: userEmail
+          };
+
+          // Save to menu:live
+          await env.BARTENDER_KV.put('menu:live', JSON.stringify(newMenu));
+
+          // Create snapshot
+          await env.BARTENDER_KV.put(
+            `menu:snapshot:v${newVersion}`,
+            JSON.stringify(newMenu)
+          );
+
+          // Clear draft after successful publish
+          try {
+            await env.BARTENDER_KV.delete('menu:draft');
+          } catch (e) {
+            console.error('Could not delete draft:', e);
+          }
+
+          return new Response(JSON.stringify({
+            success: true,
+            message: 'Menu published successfully',
+            version: newVersion,
+            publishedAt: newMenu.publishedAt
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Menu publish POST error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to publish menu',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // POST /api/menu - Legacy: Save and publish immediately (for backwards compatibility)
       if (url.pathname === '/api/menu' && request.method === 'POST') {
         try {
           const body = await request.json();
@@ -844,7 +986,7 @@ Did you make this drink?"
 
           const newMenu = {
             id: 'menu-primary',
-            items: items.map((item, idx) => ({
+            items: items.map((item) => ({
               ...item,
               version: item.version || 1,
               updatedAt: new Date().toISOString(),
@@ -884,23 +1026,69 @@ Did you make this drink?"
         }
       }
 
-      // GET /api/menu/admin - Full menu for admin (requires Cloudflare Access)
+      // GET /api/menu/draft - Get draft menu if it exists (admin only)
+      if (url.pathname === '/api/menu/draft' && request.method === 'GET') {
+        try {
+          const draft = await env.BARTENDER_KV.get('menu:draft', { type: 'json' });
+
+          if (!draft) {
+            return new Response(JSON.stringify({
+              id: 'menu-draft',
+              items: [],
+              version: 0,
+              hasDraft: false
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
+          return new Response(JSON.stringify({
+            ...draft,
+            hasDraft: true
+          }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        } catch (error) {
+          console.error('Menu draft GET error:', error);
+          return new Response(JSON.stringify({
+            error: 'Failed to load draft menu',
+            details: error.message
+          }), {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          });
+        }
+      }
+
+      // GET /api/menu/admin - Full menu for admin (returns draft if exists, otherwise live)
       if (url.pathname === '/api/menu/admin' && request.method === 'GET') {
         try {
-          const menu = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
+          // Try to load draft first
+          let menu = await env.BARTENDER_KV.get('menu:draft', { type: 'json' });
+          let source = 'draft';
+
+          // If no draft, load live menu
+          if (!menu) {
+            menu = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
+            source = 'live';
+          }
 
           if (!menu) {
             return new Response(JSON.stringify({
               id: 'menu-primary',
               items: [],
               version: 0,
-              updatedAt: new Date().toISOString()
+              updatedAt: new Date().toISOString(),
+              source: 'empty'
             }), {
               headers: { ...corsHeaders, 'Content-Type': 'application/json' }
             });
           }
 
-          return new Response(JSON.stringify(menu), {
+          return new Response(JSON.stringify({
+            ...menu,
+            source: source
+          }), {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' }
           });
         } catch (error) {
