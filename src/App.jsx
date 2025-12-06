@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, memo } from 'react'
 import MenuEditor from './components/MenuEditor'
+import BottomTabBar from './components/BottomTabBar'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -254,7 +255,8 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
       tags: tags.trim(),
       menuDescription: menuDescription.trim(),
       primarySpirit: primarySpirit,
-      created: recipe?.created || Date.now()
+      created: recipe?.created || Date.now(),
+      selectedBottles: recipe?.selectedBottles || {}
     }
     onSave(recipeData)
   }
@@ -447,11 +449,13 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
   if (!isOpen) return null
 
   const fieldInputStyle = {
-    padding: isMobile ? '10px' : '8px',
+    padding: isMobile ? '12px 10px' : '10px 8px',
+    minHeight: '48px',
     border: '1px solid #d1d5db',
     borderRadius: '6px',
     fontSize: isMobile ? '16px' : '14px',
-    width: '100%'
+    width: '100%',
+    boxSizing: 'border-box'
   }
 
   return (
@@ -581,12 +585,12 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
                   onUpdateItem('bottleSizeMl', mlValue)
                 }}
                 placeholder="e.g. 750"
-                style={{ ...fieldInputStyle, flex: 1 }}
+                style={{ ...fieldInputStyle, flex: 1, minWidth: 'clamp(80px, 60%, 150px)' }}
               />
               <select
                 value={bottleUnit}
                 onChange={(e) => onBottleUnitChange(e.target.value)}
-                style={{ ...fieldInputStyle, flex: '0 0 80px' }}
+                style={{ ...fieldInputStyle, flex: '0 0 clamp(60px, 20%, 90px)' }}
               >
                 <option value="ml">ml</option>
                 <option value="oz">oz</option>
@@ -609,12 +613,12 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
                   onUpdateItem('amountRemaining', mlValue)
                 }}
                 placeholder="e.g. 750"
-                style={{ ...fieldInputStyle, flex: 1 }}
+                style={{ ...fieldInputStyle, flex: 1, minWidth: 'clamp(80px, 60%, 150px)' }}
               />
               <select
                 value={remainingUnit}
                 onChange={(e) => onRemainingUnitChange(e.target.value)}
-                style={{ ...fieldInputStyle, flex: '0 0 80px' }}
+                style={{ ...fieldInputStyle, flex: '0 0 clamp(60px, 20%, 90px)' }}
               >
                 <option value="ml">ml</option>
                 <option value="oz">oz</option>
@@ -707,7 +711,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
 const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList }) {
   const [expanded, setExpanded] = useState(false)
   const [showBottleSelection, setShowBottleSelection] = useState(false)
-  const [selectedBottles, setSelectedBottles] = useState({})
+  const [selectedBottles, setSelectedBottles] = useState(recipe?.selectedBottles || {})
 
   // Helper function to check if an item matches an ingredient
   const itemMatchesIngredient = (item, ingNameLower) => {
@@ -799,6 +803,49 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
     )
   }
 
+  // Score matches by how closely they match the ingredient name
+  // Higher score = better match
+  const scoreMatch = (item, ingNameLower) => {
+    const itemNameLower = item.name.toLowerCase().trim()
+    const itemBrandLower = (item.brand || '').toLowerCase().trim()
+
+    // Exact match (case-insensitive) gets highest score
+    if (itemNameLower === ingNameLower) {
+      return 1000
+    }
+
+    // Ingredient is a substring of item name or vice versa
+    if (itemNameLower.includes(ingNameLower) || ingNameLower.includes(itemNameLower)) {
+      return 800
+    }
+
+    // Check word-by-word match score
+    const ingWords = ingNameLower.split(/\s+/).filter(w => w.length > 2)
+    const itemWords = itemNameLower.split(/\s+/).filter(w => w.length > 2)
+    const matchingWords = ingWords.filter(word =>
+      itemWords.some(iword => iword === word || iword.includes(word) || word.includes(iword))
+    )
+
+    // Score based on percentage of words matched
+    const wordMatchScore = ingWords.length > 0
+      ? (matchingWords.length / ingWords.length) * 500
+      : 0
+
+    // Bonus if "plain", "basic", or "simple" versions match (these are often defaults)
+    let plainBonus = 0
+    if (ingNameLower === 'sugar' || ingNameLower === 'salt' || ingNameLower === 'soda') {
+      if (itemNameLower === 'plain ' + ingNameLower || itemNameLower === 'basic ' + ingNameLower || itemNameLower === 'simple ' + ingNameLower) {
+        plainBonus = 200
+      } else if (itemNameLower === ingNameLower) {
+        plainBonus = 200
+      } else if (!itemNameLower.includes('flavored') && !itemNameLower.includes('spiced') && !itemNameLower.includes('colored')) {
+        plainBonus = 100
+      }
+    }
+
+    return wordMatchScore + plainBonus
+  }
+
   // Check if we have all ingredients with flexible matching
   const checkIngredients = () => {
     return recipe.ingredients.map(ing => {
@@ -807,10 +854,21 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       // Find ALL matching items (not just first one)
       const allMatches = inventory.filter(item => itemMatchesIngredient(item, ingNameLower))
 
-      // Use the selected bottle if user has chosen, otherwise use first match
-      const invItem = selectedBottles[ing.name]
-        ? inventory.find(item => item.name === selectedBottles[ing.name])
-        : allMatches[0]
+      // Use the selected bottle if user has chosen, otherwise use best match by score
+      let invItem
+      if (selectedBottles[ing.name]) {
+        invItem = inventory.find(item => item.name === selectedBottles[ing.name])
+      } else if (allMatches.length > 0) {
+        // Score all matches and pick the best one
+        const matchesWithScores = allMatches.map(match => ({
+          item: match,
+          score: scoreMatch(match, ingNameLower)
+        }))
+        matchesWithScores.sort((a, b) => b.score - a.score)
+        invItem = matchesWithScores[0].item
+      } else {
+        invItem = null
+      }
 
       // Store all matches for selection dialog
       const hasMultipleOptions = allMatches.length > 1
@@ -916,10 +974,18 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       })
       .join('\n')
 
+    // Persist selected bottles to recipe
+    if (Object.keys(selectedBottles).length > 0) {
+      const updatedRecipe = {
+        ...recipe,
+        selectedBottles: selectedBottles
+      }
+      onEdit(updatedRecipe)
+    }
+
     onMake(updates)
     alert(`Made ${recipe.name}!\n\nUsed from inventory:\n${bottleList}\n\nInventory updated.`)
     setShowBottleSelection(false)
-    setSelectedBottles({})
   }
 
   const addMissingToShoppingList = () => {
@@ -1058,10 +1124,10 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
             style={{
               background: 'white',
               borderRadius: '12px',
-              padding: '24px',
+              padding: isMobile ? '20px' : '24px',
               maxWidth: '500px',
               width: '100%',
-              maxHeight: '80vh',
+              maxHeight: '90vh',
               overflowY: 'auto',
               boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
               position: 'relative'
@@ -1120,14 +1186,15 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
                         key={matchIdx}
                         style={{
                           display: 'flex',
-                          alignItems: 'center',
-                          padding: '12px',
+                          alignItems: 'flex-start',
+                          padding: '16px',
                           marginBottom: '8px',
                           background: isSelected ? '#eff6ff' : 'white',
                           border: isSelected ? '2px solid #3b82f6' : '1px solid #d1d5db',
                           borderRadius: '6px',
                           cursor: 'pointer',
-                          transition: 'all 0.2s'
+                          transition: 'all 0.2s',
+                          minHeight: '52px'
                         }}
                         onMouseEnter={(e) => {
                           if (!isSelected) e.currentTarget.style.background = '#f3f4f6'
@@ -1146,14 +1213,14 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
                               [ing.name]: matchName
                             }))
                           }}
-                          style={{ marginRight: '12px', width: '18px', height: '18px', cursor: 'pointer' }}
+                          style={{ marginRight: '14px', marginTop: '2px', width: '20px', height: '20px', cursor: 'pointer', flexShrink: 0 }}
                         />
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111' }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#111', wordBreak: 'break-word' }}>
                             {match.brand && `${match.brand} `}{match.name}
                           </div>
                           {match.amountRemaining && !isNaN(parseFloat(match.amountRemaining)) && (
-                            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '2px' }}>
+                            <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>
                               {Math.round(parseFloat(match.amountRemaining))} ml remaining
                             </div>
                           )}
@@ -1846,7 +1913,16 @@ function App() {
   }
 
   const deleteRecipe = (recipeId) => {
-    setCustomRecipes(customRecipes.filter(r => r.id !== recipeId))
+    // Remove from recipes
+    const updatedRecipes = customRecipes.filter(r => r.id !== recipeId)
+    setCustomRecipes(updatedRecipes)
+
+    // Also remove from menu if it exists there (cascade delete)
+    // This prevents orphaned menu items when a recipe is deleted
+    if (menu.some(item => item.favoriteId === recipeId)) {
+      const updatedMenu = menu.filter(item => item.favoriteId !== recipeId)
+      setMenu(updatedMenu)
+    }
   }
 
   const makeRecipe = (updates) => {
@@ -1989,41 +2065,225 @@ function App() {
     <div style={{
       display: 'flex',
       flexDirection: 'column',
-      height: '100vh',
+      height: '100dvh',
       maxWidth: '800px',
       margin: '0 auto',
       fontFamily: 'system-ui, -apple-system, sans-serif'
     }}>
-      {/* Header with Purple Moonz Branding and Three Tabs */}
-      <div style={{
-        padding: '16px',
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        color: 'white'
-      }}>
-        {/* Purple Moonz Branding */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-          <div>
-            <a
-              href="https://barmenu.tawiah.net"
-              target="_blank"
-              rel="noopener noreferrer"
+      {/* Header - Desktop Only or Simplified Mobile */}
+      {!isMobile && (
+        <div style={{
+          padding: '16px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white'
+        }}>
+          {/* Purple Moonz Branding */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+            <div>
+              <a
+                href="https://barmenu.tawiah.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  textDecoration: 'none',
+                  color: 'white',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <PurpleMoonIcon size={26} />
+                <span style={{ fontSize: '24px', fontWeight: 700 }}>Purple Moonz</span>
+              </a>
+              <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
+                AI-powered home bartending
+              </p>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              {/* #7: Dark mode toggle */}
+              <button
+                type="button"
+                onClick={() => {
+                  hapticFeedback('light')
+                  setDarkMode(prev => !prev)
+                }}
+                style={{
+                  padding: '10px 12px',
+                  fontSize: '18px',
+                  background: 'rgba(255,255,255,0.2)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  minHeight: '44px',
+                  minWidth: '44px'
+                }}
+                title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              >
+                {darkMode ? '☀️' : <PurpleMoonIcon size={20} />}
+              </button>
+              <button
+                type="button"
+                onClick={() => { hapticFeedback('light'); setShowTomInfo(prev => !prev); }}
+                style={{
+                  padding: '10px 12px',
+                  fontSize: '12px',
+                  background: 'rgba(255,255,255,0.2)',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  minHeight: '44px'
+                }}
+              >
+                powered by Tom Bullock
+              </button>
+            </div>
+          </div>
+
+          {showTomInfo && (
+            <div
+              id="tom-bullock-info"
               style={{
-                textDecoration: 'none',
-                color: 'white',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
+                marginBottom: '12px',
+                background: 'rgba(255,255,255,0.15)',
+                borderRadius: '8px',
+                padding: '12px',
+                fontSize: '13px',
+                lineHeight: 1.5,
+                color: 'white'
               }}
             >
-              <PurpleMoonIcon size={26} />
-              <span style={{ fontSize: '24px', fontWeight: 700 }}>Purple Moonz</span>
-            </a>
-            <p style={{ margin: '4px 0 0 0', fontSize: '14px', opacity: 0.9 }}>
-              AI-powered home bartending
-            </p>
+              <strong>Who is Tom Bullock?</strong> Tom Bullock (1872–1964) was an influential American bartender and the first African American to publish a cocktail book, titled "The Ideal Bartender." Born in Louisville, Kentucky, to a former slave and a Union Army veteran, he worked at prestigious clubs like the Pendennis Club and the St. Louis Country Club. His 1917 book is one of the last cocktail manuals released before Prohibition, preserving a unique snapshot of pre-Prohibition recipes and American drinking culture.
+            </div>
+          )}
+
+          {/* Desktop Navigation - Hidden on Mobile */}
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              onClick={() => setCurrentView('chat')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                minHeight: '48px',
+                background: currentView === 'chat' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: currentView === 'chat' ? '600' : '400',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              Chat
+            </button>
+            <button
+              onClick={() => setCurrentView('inventory')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                minHeight: '48px',
+                background: currentView === 'inventory' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: currentView === 'inventory' ? '600' : '400',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              Inventory ({inventory.length})
+            </button>
+            <button
+              onClick={() => setCurrentView('recipes')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                minHeight: '48px',
+                background: currentView === 'recipes' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: currentView === 'recipes' ? '600' : '400',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              Favorites ({customRecipes.length})
+            </button>
+            <button
+              onClick={() => setCurrentView('menu')}
+              style={{
+                flex: 1,
+                padding: '12px',
+                minHeight: '48px',
+                background: currentView === 'menu' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
+                border: 'none',
+                color: 'white',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '15px',
+                fontWeight: currentView === 'menu' ? '600' : '400',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+            >
+              📋 Menu
+            </button>
           </div>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            {/* #7: Dark mode toggle */}
+        </div>
+      )}
+
+      {/* Mobile Header - Simplified */}
+      {isMobile && (
+        <div style={{
+          padding: '12px 16px',
+          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          color: 'white',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          minHeight: '56px'
+        }}>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            flex: 1,
+            minWidth: 0
+          }}>
+            <PurpleMoonIcon size={20} />
+            <span style={{ fontSize: '16px', fontWeight: '700', whiteSpace: 'nowrap' }}>Tom Bullock</span>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
+            <button
+              type="button"
+              onClick={() => { hapticFeedback('light'); setShowTomInfo(prev => !prev); }}
+              style={{
+                padding: '8px 12px',
+                fontSize: '16px',
+                background: 'rgba(255,255,255,0.2)',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                minHeight: '44px',
+                minWidth: '44px'
+              }}
+              title="About Tom Bullock"
+            >
+              ℹ️
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -2031,8 +2291,8 @@ function App() {
                 setDarkMode(prev => !prev)
               }}
               style={{
-                padding: '10px 12px',
-                fontSize: '18px',
+                padding: '8px 12px',
+                fontSize: '16px',
                 background: 'rgba(255,255,255,0.2)',
                 color: 'white',
                 border: 'none',
@@ -2043,128 +2303,27 @@ function App() {
               }}
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
-              {darkMode ? '☀️' : <PurpleMoonIcon size={20} />}
-            </button>
-            <button
-              type="button"
-              onClick={() => { hapticFeedback('light'); setShowTomInfo(prev => !prev); }}
-              style={{
-                padding: '10px 12px',
-                fontSize: '12px',
-                background: 'rgba(255,255,255,0.2)',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                minHeight: '44px'
-              }}
-            >
-              powered by Tom Bullock
+              {darkMode ? '☀️' : '🌙'}
             </button>
           </div>
         </div>
+      )}
 
-        {showTomInfo && (
-          <div
-            id="tom-bullock-info"
-            style={{
-              marginBottom: '12px',
-              background: 'rgba(255,255,255,0.15)',
-              borderRadius: '8px',
-              padding: '12px',
-              fontSize: '13px',
-              lineHeight: 1.5,
-              color: 'white'
-            }}
-          >
-            <strong>Who is Tom Bullock?</strong> Tom Bullock (1872–1964) was an influential American bartender and the first African American to publish a cocktail book, titled "The Ideal Bartender." Born in Louisville, Kentucky, to a former slave and a Union Army veteran, he worked at prestigious clubs like the Pendennis Club and the St. Louis Country Club. His 1917 book is one of the last cocktail manuals released before Prohibition, preserving a unique snapshot of pre-Prohibition recipes and American drinking culture.
-          </div>
-        )}
-
-        {/* Three-Tab Navigation */}
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <button
-            onClick={() => setCurrentView('chat')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              minHeight: '48px',
-              background: currentView === 'chat' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'white',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '15px',
-              fontWeight: currentView === 'chat' ? '600' : '400',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            Chat
-          </button>
-          <button
-            onClick={() => setCurrentView('inventory')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              minHeight: '48px',
-              background: currentView === 'inventory' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'white',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '15px',
-              fontWeight: currentView === 'inventory' ? '600' : '400',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            Inventory ({inventory.length})
-          </button>
-          <button
-            onClick={() => setCurrentView('recipes')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              minHeight: '48px',
-              background: currentView === 'recipes' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'white',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '15px',
-              fontWeight: currentView === 'recipes' ? '600' : '400',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            Favorites ({customRecipes.length})
-          </button>
-          <button
-            onClick={() => setCurrentView('menu')}
-            style={{
-              flex: 1,
-              padding: '12px',
-              minHeight: '48px',
-              background: currentView === 'menu' ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.1)',
-              border: 'none',
-              color: 'white',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              fontSize: '15px',
-              fontWeight: currentView === 'menu' ? '600' : '400',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            📋 Menu
-          </button>
+      {showTomInfo && isMobile && (
+        <div
+          id="tom-bullock-info"
+          style={{
+            padding: '12px 16px',
+            background: '#667eea',
+            color: 'white',
+            fontSize: '12px',
+            lineHeight: 1.5,
+            borderBottom: '1px solid rgba(255,255,255,0.2)'
+          }}
+        >
+          <strong>Tom Bullock (1872–1964)</strong> was the first African American to publish a cocktail book. A legendary bartender, his work preserved pre-Prohibition recipes and techniques.
         </div>
-      </div>
+      )}
 
       {/* Main Content - Three-Way View Switching */}
       {currentView === 'chat' && (
@@ -2175,7 +2334,7 @@ function App() {
               flex: 1,
               overflowY: 'auto',
               padding: '16px',
-              paddingBottom: isMobile ? '100px' : '16px', // #2: Space for fixed input on mobile
+              paddingBottom: isMobile ? 'calc(100px + 64px + env(safe-area-inset-bottom))' : '16px', // #2: Space for fixed input + bottom tab bar on mobile
               background: '#f5f5f5'
             }}
           >
@@ -3148,17 +3307,66 @@ function App() {
                             <>
                               <div style={{
                                 display: 'flex',
-                                gap: '4px',
+                                flexDirection: isMobile && window.innerWidth < 360 ? 'column' : 'row',
+                                gap: isMobile && window.innerWidth < 360 ? '6px' : '4px',
                                 marginTop: '8px',
-                                flexWrap: 'wrap'
+                                flexWrap: isMobile && window.innerWidth >= 360 ? 'wrap' : 'nowrap'
                               }}>
-                                <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                <button
+                                  onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1); }}
+                                  style={{
+                                    fontSize: isMobile ? '13px' : '12px',
+                                    padding: isMobile && window.innerWidth < 360 ? '10px 16px' : (isMobile ? '10px 10px' : '8px 12px'),
+                                    minHeight: isMobile && window.innerWidth < 360 ? '44px' : '44px',
+                                    flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
+                                    width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500'
+                                  }}
+                                  title="Remove 1 oz"
+                                >
                                   -1 oz
                                 </button>
-                                <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1.5); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                  -Shot (1.5oz)
+                                <button
+                                  onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1.5); }}
+                                  style={{
+                                    fontSize: isMobile ? '13px' : '12px',
+                                    padding: isMobile && window.innerWidth < 360 ? '10px 16px' : (isMobile ? '10px 10px' : '8px 12px'),
+                                    minHeight: isMobile && window.innerWidth < 360 ? '44px' : '44px',
+                                    flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
+                                    width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500'
+                                  }}
+                                  title="Remove 1 shot (1.5 oz)"
+                                >
+                                  -Shot
                                 </button>
-                                <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 2); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                <button
+                                  onClick={() => { hapticFeedback('light'); quickAdjust(idx, 2); }}
+                                  style={{
+                                    fontSize: isMobile ? '13px' : '12px',
+                                    padding: isMobile && window.innerWidth < 360 ? '10px 16px' : (isMobile ? '10px 10px' : '8px 12px'),
+                                    minHeight: isMobile && window.innerWidth < 360 ? '44px' : '44px',
+                                    flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
+                                    width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
+                                    background: '#3b82f6',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontWeight: '500'
+                                  }}
+                                  title="Remove 2 oz"
+                                >
                                   -2 oz
                                 </button>
                               </div>
@@ -3250,7 +3458,7 @@ function App() {
                               display: 'flex',
                               flexDirection: 'column',
                               gap: '12px',
-                              padding: '12px',
+                              padding: isMobile ? '16px' : '12px',
                               background: '#f9fafb',
                               borderRadius: '8px',
                               marginBottom: '8px'
@@ -3272,7 +3480,7 @@ function App() {
                                         }
                                         setSelectedItems(newSelected)
                                       }}
-                                      style={{ width: '20px', height: '20px' }}
+                                      style={{ width: '28px', height: '28px', cursor: 'pointer', accentColor: '#667eea' }}
                                     />
                                     <span style={{ fontSize: '14px', fontWeight: '600' }}>Select this item</span>
                                   </div>
@@ -3474,17 +3682,66 @@ function App() {
                                   <>
                                     <div style={{
                                       display: 'flex',
-                                      gap: '4px',
+                                      flexDirection: isMobile && window.innerWidth < 360 ? 'column' : 'row',
+                                      gap: isMobile && window.innerWidth < 360 ? '6px' : '4px',
                                       marginTop: '8px',
-                                      flexWrap: 'wrap'
+                                      flexWrap: isMobile && window.innerWidth >= 360 ? 'wrap' : 'nowrap'
                                     }}>
-                                      <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                      <button
+                                        onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1); }}
+                                        style={{
+                                          fontSize: isMobile ? '13px' : '12px',
+                                          padding: isMobile && window.innerWidth < 360 ? '10px 16px' : (isMobile ? '10px 10px' : '8px 12px'),
+                                          minHeight: '44px',
+                                          flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
+                                          width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
+                                          background: '#3b82f6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontWeight: '500'
+                                        }}
+                                        title="Remove 1 oz"
+                                      >
                                         -1 oz
                                       </button>
-                                      <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1.5); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                                        -Shot (1.5oz)
+                                      <button
+                                        onClick={() => { hapticFeedback('light'); quickAdjust(idx, 1.5); }}
+                                        style={{
+                                          fontSize: isMobile ? '13px' : '12px',
+                                          padding: isMobile && window.innerWidth < 360 ? '10px 16px' : (isMobile ? '10px 10px' : '8px 12px'),
+                                          minHeight: '44px',
+                                          flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
+                                          width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
+                                          background: '#3b82f6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontWeight: '500'
+                                        }}
+                                        title="Remove 1 shot (1.5 oz)"
+                                      >
+                                        -Shot
                                       </button>
-                                      <button onClick={() => { hapticFeedback('light'); quickAdjust(idx, 2); }} style={{ fontSize: isMobile ? '11px' : '12px', padding: isMobile ? '12px 10px' : '8px 12px', minHeight: '44px', minWidth: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                                      <button
+                                        onClick={() => { hapticFeedback('light'); quickAdjust(idx, 2); }}
+                                        style={{
+                                          fontSize: isMobile ? '13px' : '12px',
+                                          padding: isMobile && window.innerWidth < 360 ? '10px 16px' : (isMobile ? '10px 10px' : '8px 12px'),
+                                          minHeight: '44px',
+                                          flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
+                                          width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
+                                          background: '#3b82f6',
+                                          color: 'white',
+                                          border: 'none',
+                                          borderRadius: '4px',
+                                          cursor: 'pointer',
+                                          fontWeight: '500'
+                                        }}
+                                        title="Remove 2 oz"
+                                      >
                                         -2 oz
                                       </button>
                                     </div>
@@ -3791,6 +4048,15 @@ function App() {
         onRemainingUnitChange={setModalRemainingUnit}
         isMobile={isMobile}
         isGenerating={generatingNotes}
+      />
+
+      {/* Bottom Tab Bar - Mobile Only */}
+      <BottomTabBar
+        currentView={currentView}
+        setCurrentView={setCurrentView}
+        inventoryCount={inventory.length}
+        recipesCount={customRecipes.length}
+        isMobile={isMobile}
       />
     </div>
   )
