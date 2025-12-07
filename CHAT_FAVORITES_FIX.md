@@ -22,10 +22,13 @@ When you asked the chat bartender for a drink that was saved in your Favorites, 
 Updated the chat endpoint to:
 
 1. **Load Favorites from KV** - Fetch saved recipes from `recipes` key
-2. **Format for AI** - Convert to readable text with ingredients list
+2. **Format for AI** - Convert to readable text with ingredients list, quoted recipe names
 3. **Include in system prompt** - Add Favorites BEFORE menu items
 4. **Prioritize Favorites** - Check saved recipes first when user names a drink
 5. **Validate availability** - Verify ingredients exist in inventory before confirming
+6. **Match ingredients to inventory** - Map generic ingredients (Gin, Rum) to actual bottles
+7. **Calculate inventory updates** - Convert oz to ml and subtract from correct bottles
+8. **Provide concrete example** - Show AI exactly how to format inventory updates
 
 ---
 
@@ -87,10 +90,47 @@ try {
 
 ## New System Rules
 
+**Ingredient Matching Rules:**
+```
+- When recipe calls for "Gin", match it to any bottle where type=Gin
+- When recipe calls for "Rum", match it to any bottle where type=Rum
+- For specific ingredients like "Elderflower Liqueur", match by exact name
+- For generic entries like "Simple Syrup", match by name
+- Always pick the bottle with the most remaining ml
+```
+
 **Rule 1:** Check Favorites first
 ```
 When asked for a drink by name, IMMEDIATELY check the Saved Favorite Recipes FIRST.
 If it matches a favorite, use that recipe exactly with the exact ingredients listed.
+```
+
+**Rule 5 (CRITICAL):** Handle inventory updates from Favorites
+```
+When user says "I made [drink name]" or "I made X of [drink]":
+a) Find the recipe from Favorites FIRST
+b) Match each recipe ingredient to an actual inventory bottle
+c) Calculate total ml to subtract (multiply by number of drinks if stated)
+d) Emit [INVENTORY_UPDATE]{json with exact ml amounts} block
+e) Show which bottles were used
+```
+
+**Example:**
+```
+User: "I made two elderflower negronis"
+
+AI Response:
+"Used: 3 oz Gin, 1.5 oz Elderflower Liqueur, 1.5 oz Sweet Vermouth
+
+[INVENTORY_UPDATE]{
+  "updates": [
+    { "bottleName": "Gin", "mlSubtracted": 90 },
+    { "bottleName": "Elderflower Liqueur", "mlSubtracted": 45 },
+    { "bottleName": "Sweet Vermouth", "mlSubtracted": 45 }
+  ]
+}
+
+Inventory updated! What's next?"
 ```
 
 **Rule 4:** Validate inventory before confirming
@@ -105,17 +145,45 @@ Do NOT suggest substitutes unless asked.
 
 ## How It Works Now
 
-### Scenario 1: Exact Favorites Match
+### Scenario 1: Exact Favorites Match + Recipe Request
 **User:** "Make me an Elderflower Negroni"
 
 **AI:**
-1. Loads Favorites: `"Elderflower Negroni: 1.5 oz gin, 0.75 oz elderflower liqueur, 0.75 oz sweet vermouth, 2 dashes orange bitters"`
+1. Loads Favorites: `"Elderflower Negroni": 1.5oz Gin, 0.75oz Elderflower Liqueur, 0.75oz Sweet Vermouth...`
 2. Finds exact match in Favorites
 3. Verifies all ingredients exist in inventory with sufficient ml
-4. Returns exact recipe with available inventory amounts
+4. Returns exact recipe with available inventory amounts:
+   - 1.5 oz Gin (Available: 650 ml)
+   - 0.75 oz Elderflower Liqueur (Available: 500 ml)
+   - etc.
 5. Asks if you made it for inventory update
 
-### Scenario 2: Missing Ingredient in Favorites
+### Scenario 2: Inventory Update from Favorites Recipe (THE FIX)
+**User:** "I made two elderflower negronis"
+
+**AI (NOW FIXED):**
+1. Finds recipe in Favorites: `"Elderflower Negroni": 1.5oz Gin, 0.75oz Elderflower Liqueur, 0.75oz Sweet Vermouth`
+2. Matches ingredients to inventory bottles:
+   - "Gin" → matches any bottle where type=Gin (picks the one with most ml)
+   - "Elderflower Liqueur" → exact match by name
+   - "Sweet Vermouth" → exact match by name
+3. Calculates for 2 drinks:
+   - 2 × 1.5oz = 3oz Gin = 90ml
+   - 2 × 0.75oz = 1.5oz Elderflower Liqueur = 45ml
+   - 2 × 0.75oz = 1.5oz Sweet Vermouth = 45ml
+4. Emits inventory update:
+   ```
+   [INVENTORY_UPDATE]{
+     "updates": [
+       { "bottleName": "Gin", "mlSubtracted": 90 },
+       { "bottleName": "Elderflower Liqueur", "mlSubtracted": 45 },
+       { "bottleName": "Sweet Vermouth", "mlSubtracted": 45 }
+     ]
+   }
+   ```
+5. Confirms: "Inventory updated! What's next?"
+
+### Scenario 3: Missing Ingredient in Favorites
 **User:** "Make me a Pineapple-Ginger Mojito"
 
 **AI:**
@@ -124,7 +192,7 @@ Do NOT suggest substitutes unless asked.
 3. Mint is missing
 4. Responds: "Missing ingredients: Mint. Cannot make Pineapple-Ginger Mojito. Need mint for this drink."
 
-### Scenario 3: Unknown Drink (falls back to classic)
+### Scenario 4: Unknown Drink (falls back to classic)
 **User:** "Make me a Sidecar"
 
 **AI:**
