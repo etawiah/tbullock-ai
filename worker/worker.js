@@ -503,11 +503,11 @@ export default {
           if (Array.isArray(favoritesData) && favoritesData.length > 0) {
             const favoritesText = favoritesData.map(recipe => {
               const ingredientsList = recipe.ingredients
-                .map(ing => `${ing.amount} ${ing.unit} ${ing.name}`)
+                .map(ing => `${ing.amount}${ing.unit} ${ing.name}`)
                 .join(', ');
-              return `- ${recipe.name}: ${ingredientsList}`;
+              return `"${recipe.name}": ${ingredientsList}`;
             }).join('\n');
-            favoritesPrompt = `Saved Favorite Recipes:\n${favoritesText}`;
+            favoritesPrompt = `SAVED FAVORITE RECIPES (use these exactly when requested by name):\n${favoritesText}`;
           }
         } catch (e) {
           console.error('Failed to load favorites for chat:', e);
@@ -525,16 +525,29 @@ ${menuPrompt}
 CURRENT BAR INVENTORY:
 ${inventoryPrompt}
 
+INGREDIENT MATCHING RULES:
+- When a recipe calls for "Gin", match it to any bottle where type=Gin in inventory
+- When a recipe calls for "Rum", match it to any bottle where type=Rum, regardless of specific type
+- For specific ingredients like "Elderflower Liqueur", match by exact name or type
+- For generic entries like "Simple Syrup", match by name
+- Always pick the bottle with the most remaining ml
+
 NON-NEGOTIABLE RULES:
 1. When asked for a drink by name, IMMEDIATELY check the Saved Favorite Recipes FIRST. If it matches a favorite, use that recipe exactly with the exact ingredients listed.
 2. **IMPORTANT**: If the drink name matches any item in the Published Menu Items list, use that recipe exactly. These are already-designed menu items the bartender has crafted and tested.
 3. After checking Favorites and Menu, if you don't know the drink, DO NOT ask clarifying questions. Instead, IMMEDIATELY suggest 2-3 similar classic drinks you can make from their inventory.
 4. When providing a recipe from Favorites, verify every listed ingredient exists in inventory with sufficient amount. If any ingredient is missing, state: "Missing ingredients: X, Y" and note you cannot make it now. Do NOT suggest substitutes unless asked.
-5. If they're missing key ingredients for a classic drink, state what's missing and ask if they want a substitute OR suggest a different drink entirely.
-6. NEVER have conversations about beauty, aesthetics, or philosophy. Just give recipes.
-7. Keep responses UNDER 150 words unless providing a recipe.
-8. ALWAYS list what tools and glassware they need from their available inventory.
-9. After giving a recipe, ask if they made it so you can update inventory.
+5. **CRITICAL for inventory updates**: When user says "I made [drink name]" or "I made X of [drink]":
+   a) Find the recipe from Favorites FIRST
+   b) Match each recipe ingredient to an actual inventory bottle
+   c) Calculate total ml to subtract (multiply by number of drinks if stated)
+   d) Emit [INVENTORY_UPDATE]{json with exact ml amounts} block
+   e) Show which bottles were used
+6. If they're missing key ingredients for a classic drink, state what's missing and ask if they want a substitute OR suggest a different drink entirely.
+7. NEVER have conversations about beauty, aesthetics, or philosophy. Just give recipes.
+8. Keep responses UNDER 150 words unless providing a recipe.
+9. ALWAYS list what tools and glassware they need from their available inventory.
+10. After giving a recipe, ask if they made it so you can update inventory.
 
 MANDATORY RESPONSE FORMAT:
 When user asks for a drink, respond in EXACTLY this format:
@@ -597,6 +610,23 @@ Instructions:
 5. Express orange peel over drink and add cherry
 
 Did you make this drink?"
+
+INVENTORY UPDATE EXAMPLE:
+When user says "I made two elderflower negronis", respond with:
+
+Used: 3 oz Gin (from your Gin bottle), 1.5 oz Elderflower Liqueur, 1.5 oz Sweet Vermouth
+
+[INVENTORY_UPDATE]{
+  "updates": [
+    { "bottleName": "Gin", "mlSubtracted": 90 },
+    { "bottleName": "Elderflower Liqueur", "mlSubtracted": 45 },
+    { "bottleName": "Sweet Vermouth", "mlSubtracted": 45 }
+  ]
+}
+
+Then ask: "Inventory updated! What's next?"
+
+KEY: Always match recipe ingredients to actual bottle names in inventory, calculate ml (multiply oz by 30), and use the exact bottle names that appear in the inventory list.
 `;
 
         const recentHistory = Array.isArray(chatHistory) ? chatHistory.slice(-6) : [];
