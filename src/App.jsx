@@ -60,11 +60,24 @@ const shouldShowProgress = (itemType) => {
 }
 
 // Helper function to determine stock level
+// Uses absolute ml threshold (120ml ≈ 4oz) for critical level, then percentage for others
 const getStockLevel = (current, total) => {
-  const percentage = total > 0 ? (current / total) * 100 : 0
-  if (percentage < 10) return { level: 'critical', label: '🔴 Critical', color: '#dc2626' }
+  const currentMl = parseFloat(current) || 0
+  const totalMl = parseFloat(total) || 0
+
+  // Critical: Less than 120ml (4 oz) remaining, regardless of bottle size
+  if (currentMl < 120) {
+    return { level: 'critical', label: '🔴 Critical', color: '#dc2626' }
+  }
+
+  // Low: Less than 25% full
+  const percentage = totalMl > 0 ? (currentMl / totalMl) * 100 : 0
   if (percentage < 25) return { level: 'low', label: '🟡 Low Stock', color: '#f59e0b' }
+
+  // Medium: Less than 50% full
   if (percentage < 50) return { level: 'medium', label: '🟢 Medium', color: '#10b981' }
+
+  // Good: 50%+ full
   return { level: 'good', label: '🟢 Good', color: '#10b981' }
 }
 
@@ -713,6 +726,11 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
   const [showBottleSelection, setShowBottleSelection] = useState(false)
   const [selectedBottles, setSelectedBottles] = useState(recipe?.selectedBottles || {})
 
+  // Reset selectedBottles when inventory changes to force fresh availability check
+  useEffect(() => {
+    setSelectedBottles({})
+  }, [inventory])
+
   // Helper function to check if an item matches an ingredient
   const itemMatchesIngredient = (item, ingNameLower) => {
     const itemNameLower = item.name.toLowerCase().trim()
@@ -854,56 +872,77 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       // Find ALL matching items (not just first one)
       const allMatches = inventory.filter(item => itemMatchesIngredient(item, ingNameLower))
 
-      // Use the selected bottle if user has chosen, otherwise use best match by score
-      let invItem
-      if (selectedBottles[ing.name]) {
-        invItem = inventory.find(item => item.name === selectedBottles[ing.name])
-      } else if (allMatches.length > 0) {
-        // Score all matches and pick the best one
-        const matchesWithScores = allMatches.map(match => ({
-          item: match,
-          score: scoreMatch(match, ingNameLower)
-        }))
-        matchesWithScores.sort((a, b) => b.score - a.score)
-        invItem = matchesWithScores[0].item
-      } else {
-        invItem = null
-      }
-
-      // Store all matches for selection dialog
-      const hasMultipleOptions = allMatches.length > 1
-
-      if (!invItem) return {
-        ...ing,
-        available: false,
-        remaining: 0,
-        allMatches: [],
-        hasMultipleOptions: false
-      }
-
-      // For pantry items (garnish, tools, etc.), existence = availability
+      // Calculate needed amount
+      const neededMl = ing.unit === 'oz' ? parseFloat(ing.amount) * 30 : parseFloat(ing.amount)
       const pantryTypes = ['other', 'garnish', 'tool', 'bitters', 'syrup']
-      const isPantryItem = pantryTypes.includes((invItem.type || '').toLowerCase())
 
+      // For pantry items, just check existence
+      const isPantryItem = allMatches.length > 0 && pantryTypes.includes((allMatches[0].type || '').toLowerCase())
       if (isPantryItem) {
-        // Pantry items don't need quantity tracking - if it exists, it's available
+        let invItem = null
+        if (selectedBottles[ing.name]) {
+          invItem = inventory.find(item => item.name === selectedBottles[ing.name])
+        } else if (allMatches.length > 0) {
+          invItem = allMatches[0]
+        }
+
         return {
           ...ing,
-          available: true,
-          remaining: 999999,
-          matchedItem: invItem.name,
-          matchedBrand: invItem.brand || '',
+          available: !!invItem,
+          remaining: invItem ? 999999 : 0,
+          matchedItem: invItem?.name || '',
+          matchedBrand: invItem?.brand || '',
           allMatches,
-          hasMultipleOptions
+          hasMultipleOptions: allMatches.length > 1
         }
       }
 
-      // For spirits/liquids, check quantity
-      const neededMl = ing.unit === 'oz' ? parseFloat(ing.amount) * 30 : parseFloat(ing.amount)
-      const remaining = parseFloat(invItem.amountRemaining)
+      // For spirits/liquids: Find a bottle with enough ml for at least 1 drink
+      let invItem = null
+      let remaining = 0
 
-      // If amount is not a number (empty, "In Stock", etc.), treat as available
-      if (isNaN(remaining)) {
+      if (selectedBottles[ing.name]) {
+        // User explicitly selected a bottle - use it even if low
+        invItem = inventory.find(item => item.name === selectedBottles[ing.name])
+        remaining = parseFloat(invItem?.amountRemaining) || 0
+      } else if (allMatches.length > 0) {
+        // Filter matches to those with at least neededMl remaining
+        const availableMatches = allMatches.filter(match => {
+          const remaining = parseFloat(match.amountRemaining) || 0
+          return remaining >= neededMl || isNaN(remaining) // Accept non-numeric "In Stock" as available
+        })
+
+        if (availableMatches.length > 0) {
+          // Pick best match from available bottles
+          const matchesWithScores = availableMatches.map(match => ({
+            item: match,
+            score: scoreMatch(match, ingNameLower)
+          }))
+          matchesWithScores.sort((a, b) => b.score - a.score)
+          invItem = matchesWithScores[0].item
+          remaining = parseFloat(invItem.amountRemaining) || 0
+        } else {
+          // No bottle has enough for 1 drink - mark as unavailable
+          // (but still show in allMatches for user selection if they want to try)
+          invItem = null
+          remaining = 0
+        }
+      }
+
+      if (!invItem && !isNaN(remaining)) {
+        return {
+          ...ing,
+          available: false,
+          remaining: 0,
+          matchedItem: '',
+          matchedBrand: '',
+          allMatches,
+          hasMultipleOptions: allMatches.length > 1
+        }
+      }
+
+      // Handle non-numeric amounts (e.g., "In Stock")
+      if (invItem && isNaN(remaining)) {
         return {
           ...ing,
           available: true,
@@ -911,7 +950,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
           matchedItem: invItem.name,
           matchedBrand: invItem.brand || '',
           allMatches,
-          hasMultipleOptions
+          hasMultipleOptions: allMatches.length > 1
         }
       }
 
@@ -919,10 +958,10 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
         ...ing,
         available: remaining >= neededMl,
         remaining,
-        matchedItem: invItem.name,
-        matchedBrand: invItem.brand || '',
+        matchedItem: invItem?.name || '',
+        matchedBrand: invItem?.brand || '',
         allMatches,
-        hasMultipleOptions
+        hasMultipleOptions: allMatches.length > 1
       }
     })
   }
@@ -986,6 +1025,9 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
     onMake(updates)
     alert(`Made ${recipe.name}!\n\nUsed from inventory:\n${bottleList}\n\nInventory updated.`)
     setShowBottleSelection(false)
+
+    // Reset selectedBottles after successful inventory update to force fresh availability check
+    setSelectedBottles({})
   }
 
   const addMissingToShoppingList = () => {
