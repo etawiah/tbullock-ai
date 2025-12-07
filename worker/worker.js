@@ -496,10 +496,29 @@ export default {
           console.error('Failed to load menu for chat:', e);
         }
 
+        // Load saved Favorites recipes
+        let favoritesPrompt = 'No saved favorite recipes';
+        try {
+          const favoritesData = await env.BARTENDER_KV.get('recipes', { type: 'json' }) || [];
+          if (Array.isArray(favoritesData) && favoritesData.length > 0) {
+            const favoritesText = favoritesData.map(recipe => {
+              const ingredientsList = recipe.ingredients
+                .map(ing => `${ing.amount} ${ing.unit} ${ing.name}`)
+                .join(', ');
+              return `- ${recipe.name}: ${ingredientsList}`;
+            }).join('\n');
+            favoritesPrompt = `Saved Favorite Recipes:\n${favoritesText}`;
+          }
+        } catch (e) {
+          console.error('Failed to load favorites for chat:', e);
+        }
+
         const systemPrompt = `You are a bartender AI assistant. When asked for a drink, your job is to:
 1. Find the recipe and provide it immediately using the customer's available ingredients
 2. Tell them exactly how to make it with what they have
 3. If you need to substitute ingredients, state the substitutions clearly
+
+${favoritesPrompt}
 
 ${menuPrompt}
 
@@ -507,14 +526,15 @@ CURRENT BAR INVENTORY:
 ${inventoryPrompt}
 
 NON-NEGOTIABLE RULES:
-1. When asked for a drink by name, IMMEDIATELY provide the recipe. DO NOT ask questions about what they mean or want more context. Just give the recipe.
-2. **IMPORTANT**: If the drink name matches any item in the Published Menu Items list above, use that recipe exactly. These are already-designed menu items the bartender has crafted and tested.
-3. If you don't know a specific drink name, DO NOT ask clarifying questions. Instead, IMMEDIATELY suggest 2-3 similar classic drinks you can make from their inventory.
-4. If they're missing key ingredients, state what's missing and suggest a close substitute using what they have OR suggest a different drink entirely.
-5. NEVER have conversations about beauty, aesthetics, or philosophy. Just give recipes.
-6. Keep responses UNDER 150 words unless providing a recipe.
-7. ALWAYS list what tools and glassware they need from their available inventory.
-8. After giving a recipe, ask if they made it so you can update inventory.
+1. When asked for a drink by name, IMMEDIATELY check the Saved Favorite Recipes FIRST. If it matches a favorite, use that recipe exactly with the exact ingredients listed.
+2. **IMPORTANT**: If the drink name matches any item in the Published Menu Items list, use that recipe exactly. These are already-designed menu items the bartender has crafted and tested.
+3. After checking Favorites and Menu, if you don't know the drink, DO NOT ask clarifying questions. Instead, IMMEDIATELY suggest 2-3 similar classic drinks you can make from their inventory.
+4. When providing a recipe from Favorites, verify every listed ingredient exists in inventory with sufficient amount. If any ingredient is missing, state: "Missing ingredients: X, Y" and note you cannot make it now. Do NOT suggest substitutes unless asked.
+5. If they're missing key ingredients for a classic drink, state what's missing and ask if they want a substitute OR suggest a different drink entirely.
+6. NEVER have conversations about beauty, aesthetics, or philosophy. Just give recipes.
+7. Keep responses UNDER 150 words unless providing a recipe.
+8. ALWAYS list what tools and glassware they need from their available inventory.
+9. After giving a recipe, ask if they made it so you can update inventory.
 
 MANDATORY RESPONSE FORMAT:
 When user asks for a drink, respond in EXACTLY this format:
@@ -773,14 +793,27 @@ Did you make this drink?"
             });
           }
 
-          // Filter to active items only for public menu
-          const publicItems = menu.items.filter(item => item.status === 'active').map(item => ({
-            id: item.id,
-            name: item.name,
-            description: item.description,
-            primarySpirit: item.primarySpirit,
-            tags: item.tags || []
-          }));
+          // Load recipes to validate menu items don't reference deleted recipes
+          const recipes = await env.BARTENDER_KV.get('recipes', { type: 'json' }) || [];
+          const validRecipeIds = new Set(recipes.map(r => r.id));
+
+          // Filter to active items only for public menu, and exclude orphaned items
+          const publicItems = menu.items
+            .filter(item => {
+              // Must be active to show publicly
+              if (item.status !== 'active') return false;
+              // Items without favoriteId are kept (old items)
+              if (!item.favoriteId) return true;
+              // Items with favoriteId must reference a valid recipe
+              return validRecipeIds.has(item.favoriteId);
+            })
+            .map(item => ({
+              id: item.id,
+              name: item.name,
+              description: item.description,
+              primarySpirit: item.primarySpirit,
+              tags: item.tags || []
+            }));
 
           return new Response(JSON.stringify({
             id: menu.id,
@@ -1085,6 +1118,25 @@ Did you make this drink?"
             });
           }
 
+          // Load recipes to validate menu items don't reference deleted recipes
+          const recipes = await env.BARTENDER_KV.get('recipes', { type: 'json' }) || [];
+          const validRecipeIds = new Set(recipes.map(r => r.id));
+
+          // Filter out any menu items that reference non-existent recipes (orphaned items)
+          const validItems = menu.items.filter(item => {
+            // Items without favoriteId (old items) are kept
+            if (!item.favoriteId) return true;
+            // Items with favoriteId must reference a valid recipe
+            return validRecipeIds.has(item.favoriteId);
+          });
+
+          // If we filtered out any orphaned items, log it
+          if (validItems.length < menu.items.length) {
+            const orphanedCount = menu.items.length - validItems.length;
+            console.warn(`Filtered out ${orphanedCount} orphaned menu item(s)`);
+            menu.items = validItems;
+          }
+
           return new Response(JSON.stringify({
             ...menu,
             source: source
@@ -1109,8 +1161,8 @@ Did you make this drink?"
           const currentMenu = await env.BARTENDER_KV.get('menu:live', { type: 'json' });
           const snapshots = [];
 
-          // Try to load snapshots (we'll check up to 20 versions back)
-          for (let i = currentMenu?.version || 0; i >= Math.max(1, (currentMenu?.version || 1) - 20); i--) {
+          // Try to load snapshots (we'll check up to 5 versions back)
+          for (let i = currentMenu?.version || 0; i >= Math.max(1, (currentMenu?.version || 1) - 5); i--) {
             try {
               const snapshot = await env.BARTENDER_KV.get(`menu:snapshot:v${i}`, { type: 'json' });
               if (snapshot) {
