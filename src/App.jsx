@@ -2103,6 +2103,10 @@ function App() {
     return { newItems, grouped }
   }
 
+  const bottomTabBarOffset = isMobile && currentView === 'chat'
+    ? 'calc(96px + env(safe-area-inset-bottom))'
+    : '0'
+
   return (
     <div style={{
       display: 'flex',
@@ -4099,6 +4103,7 @@ function App() {
         inventoryCount={inventory.length}
         recipesCount={customRecipes.length}
         isMobile={isMobile}
+        bottomOffset={bottomTabBarOffset}
       />
     </div>
   )

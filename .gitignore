@@ -36,3 +36,5 @@ yarn-error.log*
 # Testing
 coverage/
 .nyc_output/
+# Local templates backfilled for private notes
+*.local.md

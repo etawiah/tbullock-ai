@@ -19,7 +19,8 @@ const BottomTabBar = memo(function BottomTabBar({
   setCurrentView,
   inventoryCount,
   recipesCount,
-  isMobile
+  isMobile,
+  bottomOffset = 0
 }) {
   if (!isMobile) return null;
 
@@ -33,7 +34,7 @@ const BottomTabBar = memo(function BottomTabBar({
   return (
     <div style={{
       position: 'fixed',
-      bottom: 0,
+      bottom: bottomOffset,
       left: 0,
       right: 0,
       height: '64px',
