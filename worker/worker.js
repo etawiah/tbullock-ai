@@ -1,6 +1,6 @@
 ﻿// Cloudflare Worker - Handles AI requests and inventory management
 import { parseInventoryUpdate, applyInventoryUpdates, describeUpdate } from './inventoryUpdate.js';
-import { readList, readRev, saveList } from './lists.js';
+import { readList, readRev, saveList, backupBeforeWrite } from './lists.js';
 // Frontend (bartender.tawiah.net) is protected by Cloudflare Access
 // Worker endpoints trust authenticated requests from the protected frontend
 
@@ -506,6 +506,12 @@ export default {
       // Route: Save chat history
       if (url.pathname === '/api/chat-history' && request.method === 'POST') {
         const { chatHistory } = await request.json();
+        if (!Array.isArray(chatHistory)) return json({ error: 'chatHistory must be an array' }, 400, corsHeaders);
+        try {
+          await backupBeforeWrite(env.BARTENDER_KV, 'chatHistory');
+        } catch (error) {
+          console.error('Backup of chatHistory failed (saving anyway):', error);
+        }
         await env.BARTENDER_KV.put('chatHistory', JSON.stringify(chatHistory));
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
@@ -942,6 +948,30 @@ KEY POINTS:
             }
           );
         }
+      }
+
+      // GET /api/export - everything in one JSON file (the app's "Export everything")
+      if (url.pathname === '/api/export' && request.method === 'GET') {
+        const kv = env.BARTENDER_KV;
+        const [inventory, recipes, shopping, chatHistory, menuLive, menuDraft] = await Promise.all(
+          ['inventory', 'recipes', 'shopping', 'chatHistory', 'menu:live', 'menu:draft'].map(k => kv.get(k, { type: 'json' }))
+        );
+        return json({
+          format: 'tom-bullock-backup',
+          version: 1,
+          exportedAt: new Date().toISOString(),
+          inventory: inventory || [],
+          recipes: recipes || [],
+          shopping: shopping || [],
+          chatHistory: chatHistory || [],
+          menu: { live: menuLive, draft: menuDraft }
+        }, 200, corsHeaders);
+      }
+
+      // GET /api/backups - which daily backups exist (restore steps: docs/data-model.md)
+      if (url.pathname === '/api/backups' && request.method === 'GET') {
+        const { keys } = await env.BARTENDER_KV.list({ prefix: 'backup:' });
+        return json({ backups: keys.map(k => k.name).sort() }, 200, corsHeaders);
       }
 
       // ========== MENU ENDPOINTS ==========

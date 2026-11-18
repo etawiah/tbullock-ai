@@ -219,6 +219,19 @@ await scenario('fab-add', async expect => {
   await ctx.close()
 })
 
+await scenario('export-everything', async expect => {
+  const { ctx, page } = await newPage()
+  await tab(page, 'Inventory').click(); await settle(page)
+  await page.getByRole('button', { name: 'Maintenance menu' }).click(); await settle(page, 300)
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Export everything/ }).click()])
+  const file = path.join(OUT, 'backup.json')
+  await download.saveAs(file)
+  const data = JSON.parse(fs.readFileSync(file, 'utf8'))
+  expect('backup file has inventory, favorites, chat', data.inventory.length > 0 && data.recipes.length > 0 && data.chatHistory.length === 2)
+  expect('backup file named with the date', /^bar-backup-\d{4}-\d{2}-\d{2}\.json$/.test(download.suggestedFilename()), download.suggestedFilename())
+  await ctx.close()
+})
+
 await scenario('bottle-picker', async expect => {
   const seed = seedData()
   seed.inventory.push({ type: 'Vodka', name: "Tito's Vodka", bottleSizeMl: '750', amountRemaining: '700' })

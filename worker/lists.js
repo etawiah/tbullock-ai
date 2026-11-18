@@ -18,6 +18,25 @@ export async function readList(kv, key) {
   return { items: Array.isArray(stored) ? stored : [], stored: stored !== null }
 }
 
+export const BACKUP_DAYS = 14
+const today = (now) => new Date(now).toISOString().slice(0, 10)
+
+// Before the first write of each (UTC) day, copy the current stored value to
+// backup:<key>:<YYYY-MM-DD>, then keep only the newest BACKUP_DAYS copies.
+// Costs at most one extra write per list per day.
+export async function backupBeforeWrite(kv, key, now = Date.now()) {
+  const backupKey = `backup:${key}:${today(now)}`
+  if (await kv.get(backupKey) !== null) return
+  const current = await kv.get(key)
+  if (current === null) return
+  await kv.put(backupKey, current)
+  const { keys } = await kv.list({ prefix: `backup:${key}:` })
+  const names = keys.map(k => k.name).sort()
+  for (const old of names.slice(0, Math.max(0, names.length - BACKUP_DAYS))) {
+    await kv.delete(old)
+  }
+}
+
 // Returns { status: 'saved', rev } | { status: 'conflict', rev, items } | { status: 'invalid' }.
 export async function saveList(kv, key, items, clientRev) {
   if (!Array.isArray(items)) return { status: 'invalid' }
@@ -25,6 +44,11 @@ export async function saveList(kv, key, items, clientRev) {
   if (Number.isInteger(clientRev) && clientRev !== currentRev) {
     const { items: current } = await readList(kv, key)
     return { status: 'conflict', rev: currentRev, items: current }
+  }
+  try {
+    await backupBeforeWrite(kv, key)
+  } catch (error) {
+    console.error(`Backup of ${key} failed (saving anyway):`, error)
   }
   await kv.put(key, JSON.stringify(items))
   const rev = currentRev + 1

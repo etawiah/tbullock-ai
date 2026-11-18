@@ -31,6 +31,12 @@ const convertFromMl = (mlValue, targetUnit) => {
   return String(ml)
 }
 
+// YYYY-MM-DD in the phone's own time zone (for file names)
+const localDateStamp = (date = new Date()) => {
+  const pad = (n) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
 // Progress Bar Component for Bottle Fill Levels
 // #22: Memoized to prevent unnecessary re-renders
 const ProgressBar = memo(function ProgressBar({ current, total }) {
@@ -1893,6 +1899,22 @@ function App() {
     URL.revokeObjectURL(url)
   }
 
+  // Everything (inventory, favorites, shopping, chat, menu) in one file.
+  const exportEverything = async () => {
+    try {
+      const data = await requestJson(fetch, `${WORKER_URL}/export`)
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bar-backup-${localDateStamp()}.json`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      alert(`Couldn't export: ${error.message}`)
+    }
+  }
+
   const importFromJSON = () => {
     const input = document.createElement('input')
     input.type = 'file'
@@ -1903,7 +1925,9 @@ function App() {
       const reader = new FileReader()
       reader.onload = (event) => {
         try {
-          const imported = JSON.parse(event.target.result)
+          const parsed = JSON.parse(event.target.result)
+          // Accept a plain inventory array or an "Export everything" backup file.
+          const imported = Array.isArray(parsed) ? parsed : (parsed?.format === 'tom-bullock-backup' ? parsed.inventory : null)
           if (Array.isArray(imported)) {
             const normalized = ensureInventoryShape(imported)
             if (!confirm(`Replace your ${inventory.length} bottles with the ${normalized.length} in this file?`)) return
@@ -1911,7 +1935,7 @@ function App() {
               alert(saved ? `Imported and saved ${normalized.length} items.` : `Imported ${normalized.length} items, but saving failed. Check your connection.`)
             })
           } else {
-            alert('Invalid file format. Expected JSON array.')
+            alert('Invalid file. Choose an inventory export or a bar-backup file.')
           }
         } catch (error) {
           alert('Failed to parse JSON file.')
@@ -2721,6 +2745,29 @@ function App() {
                           onMouseLeave={(e) => e.target.style.background = 'transparent'}
                         >
                           <span>📤</span> Export JSON
+                        </button>
+                        <button
+                          onClick={() => {
+                            setMaintenanceMenuOpen(false)
+                            exportEverything()
+                          }}
+                          style={{
+                            width: '100%',
+                            background: 'transparent',
+                            color: '#111',
+                            border: 'none',
+                            padding: '12px 16px',
+                            minHeight: '44px',
+                            borderRadius: '8px',
+                            cursor: 'pointer',
+                            fontSize: '14px',
+                            textAlign: 'left',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px'
+                          }}
+                        >
+                          <span>💾</span> Export everything (backup)
                         </button>
                         <button
                           onClick={() => {
