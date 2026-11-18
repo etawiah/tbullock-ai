@@ -63,6 +63,22 @@ async function runWorker(method, url, headers, body) {
   return { status: resp.status, headers: Object.fromEntries(resp.headers), body: await resp.text() }
 }
 
+// Apply Cloudflare Pages-style _headers rules so the smoke test runs under the real CSP.
+function loadHeaderRules(file) {
+  if (!fs.existsSync(file)) return []
+  const rules = []
+  for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+    if (!line.trim() || line.trim().startsWith('#')) continue
+    if (!/^\s/.test(line)) rules.push({ pattern: line.trim(), headers: {} })
+    else if (rules.length) { const i = line.indexOf(':'); rules.at(-1).headers[line.slice(0, i).trim()] = line.slice(i + 1).trim() }
+  }
+  return rules
+}
+const matches = (pattern, p) => pattern.endsWith('*') ? p.startsWith(pattern.slice(0, -1)) : p === pattern
+const headersFor = (rules, p) => Object.assign({}, ...rules.filter(r => matches(r.pattern, p)).map(r => r.headers))
+const APP_HEADERS = loadHeaderRules(path.join(DIST, '_headers'))
+const GUEST_HEADERS = loadHeaderRules(path.join(ROOT, 'barmenu-public', '_headers'))
+
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.png': 'image/png', '.svg': 'image/svg+xml', '.txt': 'text/plain', '.css': 'text/css' }
 const server = http.createServer(async (req, res) => {
   const pathname = decodeURIComponent(new URL(req.url, 'http://x').pathname)
@@ -78,13 +94,13 @@ const server = http.createServer(async (req, res) => {
     const guestDir = path.join(ROOT, 'barmenu-public')
     const f = path.join(guestDir, pathname.slice('/guest/'.length) || 'index.html')
     if (f.startsWith(guestDir) && fs.existsSync(f) && !fs.statSync(f).isDirectory()) {
-      res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' })
+      res.writeHead(200, { ...headersFor(GUEST_HEADERS, '/' + path.relative(guestDir, f)), 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' })
       return fs.createReadStream(f).pipe(res)
     }
   }
   let file = path.join(DIST, pathname)
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html')
-  res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' })
+  res.writeHead(200, { ...headersFor(APP_HEADERS, '/' + path.relative(DIST, file)), 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' })
   fs.createReadStream(file).pipe(res)
 })
 await new Promise(r => server.listen(PORT, r))
@@ -99,6 +115,7 @@ async function newPage({ dark = false } = {}) {
   const errors = []
   const apiCalls = []
   page.on('pageerror', e => errors.push(e.message))
+  page.on('console', m => { if (/Content Security Policy/i.test(m.text())) errors.push('CSP: ' + m.text().slice(0, 160)) })
   page.on('dialog', d => d.accept())
   page.on('request', r => {
     const u = new URL(r.url())
@@ -143,7 +160,9 @@ await scenario('chat-load', async expect => {
   expect('does not save an empty chat history on startup', !emptyPost)
   expect('history still in storage', currentKV.json('chatHistory').length === 2)
   expect('Menu tab is tappable on the chat screen', await tab(page, 'Menu').click({ trial: true, timeout: 2000 }).then(() => true, () => false))
-  expect('no page errors', errors.length === 0, errors.join('; '))
+  expect('no page errors or CSP violations', errors.length === 0, errors.join('; '))
+  const head = await page.request.get(`http://localhost:${PORT}/`)
+  expect('app sends a CSP', Boolean(head.headers()['content-security-policy']))
   await ctx.close()
 })
 
@@ -265,7 +284,11 @@ await scenario('guest-menu', async expect => {
   }))
   const ctx = await browser.newContext({ ...devices['iPhone 13'] })
   const page = await ctx.newPage()
-  await page.goto(`http://localhost:${PORT}/guest/index.html`); await page.waitForTimeout(1200)
+  const cspErrors = []
+  page.on('console', m => { if (/Content Security Policy/i.test(m.text())) cspErrors.push(m.text().slice(0, 160)) })
+  const resp = await page.goto(`http://localhost:${PORT}/guest/index.html`); await page.waitForTimeout(1200)
+  expect('guest page sends a CSP', Boolean(resp.headers()['content-security-policy']))
+  expect('no CSP violations on guest page', cspErrors.length === 0, cspErrors.join('; '))
   await shot(page, 'guest-menu')
   expect('menu text is not executed as HTML', await page.evaluate(() => window.__xss === undefined))
   expect('menu text shown literally', await page.getByText('Evil Fizz').first().isVisible().catch(() => false))
