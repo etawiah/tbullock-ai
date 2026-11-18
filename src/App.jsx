@@ -2034,6 +2034,23 @@ function App() {
     }])
   }
 
+  // Share the shopping list via the phone's share sheet (falls back to copying).
+  const shareShoppingList = async () => {
+    const text = shoppingList
+      .map(item => `• ${item.brand ? `${item.brand} ` : ''}${item.name}${item.amount ? ` (${item.amount})` : ''}`)
+      .join('\n')
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: 'Bar shopping list', text })
+        return
+      }
+      await navigator.clipboard.writeText(text)
+      showToast('Shopping list copied — paste it into Messages or Notes.')
+    } catch (error) {
+      if (error?.name !== 'AbortError') showToast("Couldn't share the list on this device.")
+    }
+  }
+
   // #5: Pull-to-refresh handlers for inventory
   const inventoryRef = useRef(null)
   const pullStartY = useRef(0)
@@ -3131,6 +3148,24 @@ function App() {
                   </div>
                 ))}
                 <button
+                  onClick={shareShoppingList}
+                  style={{
+                    padding: '8px 16px',
+                    minHeight: '44px',
+                    background: '#2563eb',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px',
+                    fontWeight: 600,
+                    marginTop: '8px',
+                    marginRight: '8px'
+                  }}
+                >
+                  📤 Share list
+                </button>
+                <button
                   onClick={() => {
                     if (confirm('Clear entire shopping list?')) {
                       setShoppingList([])
@@ -3143,7 +3178,8 @@ function App() {
                     border: 'none',
                     borderRadius: '4px',
                     cursor: 'pointer',
-                    fontSize: isMobile ? '12px' : '14px',
+                    fontSize: '14px',
+                    minHeight: '44px',
                     marginTop: '8px'
                   }}
                 >

@@ -206,6 +206,9 @@ await scenario('shopping-low-stock', async expect => {
   await page.getByRole('button', { name: /Add to Shopping List/ }).first().click(); await settle(page, 1200)
   const shopping = currentKV.json('shopping') || []
   expect('low-stock bottle stays on the shopping list', shopping.some(i => i.name === 'New Amsterdam Vodka'), `shopping=${JSON.stringify(shopping.map(i => i.name))}`)
+  await page.evaluate(() => { window.__shared = null; navigator.share = async (data) => { window.__shared = data } })
+  await page.getByRole('button', { name: /Share list/ }).click(); await settle(page, 300)
+  expect('Share list sends the list to the share sheet', /New Amsterdam Vodka/.test((await page.evaluate(() => window.__shared))?.text || ''))
   expect('no page errors', errors.length === 0, errors.join('; '))
   await ctx.close()
 })
