@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef, memo } from 'react'
 import MenuEditor from './components/MenuEditor'
 import BottomTabBar from './components/BottomTabBar'
 import { API_BASE } from './lib/config'
-import { loadList } from './lib/api'
+import { loadList, requestJson } from './lib/api'
+import { createSaveQueue } from './lib/saveQueue'
+import { subtractPours, subtractAt, ML_PER_OZ } from './lib/inventory'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -1324,7 +1326,16 @@ function App() {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
-  const [inventory, setInventory] = useState([])
+  const [inventory, setInventoryState] = useState([])
+  // Always-current copy of the inventory so queued saves and quick changes never
+  // work from a stale render.
+  const latestInventory = useRef([])
+  const setInventory = (next) => {
+    const value = typeof next === 'function' ? next(latestInventory.current) : next
+    latestInventory.current = value
+    setInventoryState(value)
+  }
+  const [inventorySaveStatus, setInventorySaveStatus] = useState(null) // 'saving' | 'saved' | 'error'
   const [showInventory, setShowInventory] = useState(false)
   const [editingInventory, setEditingInventory] = useState(false)
   const [showTomInfo, setShowTomInfo] = useState(false)
@@ -1616,6 +1627,30 @@ function App() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // One queue for all inventory saves: a save requested while another is in
+  // flight is never dropped, and rapid taps are coalesced into one request.
+  const inventoryQueue = useRef(null)
+  if (!inventoryQueue.current) {
+    inventoryQueue.current = createSaveQueue({
+      getValue: () => latestInventory.current,
+      save: (value) => requestJson(fetch, `${WORKER_URL}/inventory`, { method: 'POST', body: { inventory: value } }),
+      onStatus: (status) => setInventorySaveStatus(status)
+    })
+  }
+  const dataLoadedRef = useRef(dataLoaded)
+  dataLoadedRef.current = dataLoaded
+
+  // Apply a change to the inventory and save it right away.
+  // Returns a promise that resolves to true when saved.
+  const commitInventory = (mutate) => {
+    if (!dataLoadedRef.current.inventory) {
+      alert("Your inventory hasn't loaded yet, so this change can't be saved. Tap Retry at the top first.")
+      return Promise.resolve(false)
+    }
+    setInventory(mutate(latestInventory.current))
+    return inventoryQueue.current.request().then(() => true, () => false)
+  }
+
   const loadInventory = async () => {
     try {
       const { items } = await loadList(fetch, { base: WORKER_URL, path: 'inventory', field: 'inventory', seedUrl: '/initial-inventory.json' })
@@ -1629,6 +1664,10 @@ function App() {
 
   const saveInventory = async (newInventory) => {
     if (savingInventory) return
+    if (!dataLoadedRef.current.inventory) {
+      alert("Your inventory hasn't loaded yet, so it can't be saved. Tap Retry at the top first.")
+      return
+    }
 
     setSavingInventory(true)
     setNoteStatus('')
@@ -1671,17 +1710,8 @@ function App() {
       }
 
       // Save the enriched or original inventory
-      const response = await fetch(`${WORKER_URL}/inventory`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ inventory: enrichedInventory })
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to save inventory')
-      }
-
       setInventory(enrichedInventory)
+      await inventoryQueue.current.request()
       setEditingInventory(false)
       if (!finalStatusMessage) {
         finalStatusMessage = 'Inventory saved.'
@@ -1689,7 +1719,7 @@ function App() {
       }
     } catch (error) {
       console.error('Failed to save inventory:', error)
-      alert('Failed to save inventory')
+      alert("Couldn't save your inventory. Your edits are still here. Check your connection and tap Save again.")
     } finally {
       setGeneratingNotes(false)
       setSavingInventory(false)
@@ -1775,36 +1805,25 @@ function App() {
     setModalRemainingUnit('ml')
   }
 
-  const saveModalItem = async () => {
-    // Add the item at the beginning so it appears at the top
-    const newInventory = [modalItem, ...inventory]
-
-    // Auto-generate flavor notes for the new item if it has a name but no notes
-    if (modalItem.name && modalItem.name.trim().length > 0 &&
-        (!modalItem.flavorNotes || modalItem.flavorNotes.trim().length === 0)) {
-      try {
-        setGeneratingNotes(true)
-        const enrichResponse = await fetch(`${WORKER_URL}/enrich-inventory`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ inventory: newInventory })
-        })
-
-        if (enrichResponse.ok) {
-          const enrichData = await enrichResponse.json()
-          const enrichedInventory = ensureInventoryShape(enrichData.inventory || newInventory)
-          setInventory(enrichedInventory)
-          setGeneratingNotes(false)
-          return true
-        }
-      } catch (error) {
-        console.error('Failed to enrich new item:', error)
-      }
-      setGeneratingNotes(false)
+  // Ask the AI for tasting notes for one new bottle, then save them onto that bottle.
+  const enrichItemInBackground = async (item) => {
+    try {
+      const data = await requestJson(fetch, `${WORKER_URL}/enrich-inventory`, { method: 'POST', body: { inventory: [item] } })
+      const flavorNotes = data?.inventory?.[0]?.flavorNotes
+      if (!flavorNotes) return
+      commitInventory(inv => inv.map(it => (it === item ? { ...it, flavorNotes } : it)))
+    } catch (error) {
+      console.error('Failed to enrich new item:', error)
     }
+  }
 
-    setInventory(newInventory)
-    return true
+  const saveModalItem = async () => {
+    const newItem = { ...modalItem }
+    const saved = await commitInventory(inv => [newItem, ...inv])
+    if (saved && newItem.name.trim() && !(newItem.flavorNotes || '').trim() && !shouldSkipFlavorNotes(newItem)) {
+      enrichItemInBackground(newItem)
+    }
+    return saved
   }
 
   const saveAndAddAnother = async () => {
@@ -1825,9 +1844,7 @@ function App() {
   }
 
   const updateInventoryItem = (index, field, value) => {
-    const newInventory = [...inventory]
-    newInventory[index][field] = value
-    setInventory(newInventory)
+    setInventory(inv => inv.map((item, i) => (i === index ? { ...item, [field]: value } : item)))
   }
 
   const removeInventoryItem = (index) => {
@@ -1885,8 +1902,10 @@ function App() {
           const imported = JSON.parse(event.target.result)
           if (Array.isArray(imported)) {
             const normalized = ensureInventoryShape(imported)
-            setInventory(normalized)
-            alert(`Imported ${normalized.length} items. Remember to save!`)
+            if (!confirm(`Replace your ${inventory.length} bottles with the ${normalized.length} in this file?`)) return
+            commitInventory(() => normalized).then(saved => {
+              alert(saved ? `Imported and saved ${normalized.length} items.` : `Imported ${normalized.length} items, but saving failed. Check your connection.`)
+            })
           } else {
             alert('Invalid file format. Expected JSON array.')
           }
@@ -1911,12 +1930,11 @@ function App() {
 
   const bulkAdjust = (mlChange) => {
     if (selectedItems.size === 0) return
-    const newInventory = [...inventory]
-    selectedItems.forEach(idx => {
-      const current = parseFloat(newInventory[idx].amountRemaining) || 0
-      newInventory[idx].amountRemaining = String(Math.max(0, current + mlChange))
-    })
-    setInventory(newInventory)
+    setInventory(inv => inv.map((item, idx) => {
+      if (!selectedItems.has(idx)) return item
+      const current = parseFloat(item.amountRemaining) || 0
+      return { ...item, amountRemaining: String(Math.max(0, current + mlChange)) }
+    }))
   }
 
   const selectAll = () => {
@@ -1953,27 +1971,11 @@ function App() {
     }
   }
 
-  const makeRecipe = (updates) => {
-    const newInventory = [...inventory]
-    updates.forEach(({ name, subtract }) => {
-      const idx = newInventory.findIndex(item => item.name === name)
-      if (idx !== -1) {
-        const current = parseFloat(newInventory[idx].amountRemaining) || 0
-        newInventory[idx].amountRemaining = String(Math.max(0, current - subtract))
-      }
-    })
-    setInventory(newInventory)
-    saveInventory(newInventory)
-  }
+  // Subtract the poured amounts and save immediately (no AI call on this path).
+  const makeRecipe = (updates) => commitInventory(inv => subtractPours(inv, updates))
 
-  // Quick Adjust Function for inventory
-  const quickAdjust = (index, ozAmount) => {
-    const mlAmount = ozAmount * 29.5735
-    const newInventory = [...inventory]
-    const current = parseFloat(newInventory[index].amountRemaining) || 0
-    newInventory[index].amountRemaining = String(Math.max(0, current - mlAmount))
-    setInventory(newInventory)
-  }
+  // Quick Adjust (-1 oz / -Shot / -2 oz): subtract and save immediately
+  const quickAdjust = (index, ozAmount) => commitInventory(inv => subtractAt(inv, index, ozAmount * ML_PER_OZ))
 
   // Shopping List Functions
   const addToShoppingList = (item) => {
@@ -2786,11 +2788,7 @@ function App() {
                           if (remainingMissing === 0) {
                             setNoteStatus(`Success: generated and saved ${processedCount} flavor notes!`)
 
-                            await fetch(`${WORKER_URL}/inventory`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ inventory: currentInventory })
-                            })
+                            await inventoryQueue.current.request()
 
                             hapticFeedback('success')
                             break
@@ -2802,11 +2800,7 @@ function App() {
 
                         if (remainingMissing > 0) {
                           if (processedCount > 0) {
-                            await fetch(`${WORKER_URL}/inventory`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ inventory: currentInventory })
-                            })
+                            await inventoryQueue.current.request()
                           }
 
                           setNoteStatus(`${remainingMissing} item(s) still missing notes. Please run again later.`)
@@ -4090,6 +4084,42 @@ function App() {
           customRecipes={customRecipes}
           onClose={() => setCurrentView('chat')}
         />
+      )}
+
+      {/* Inventory save status */}
+      {inventorySaveStatus && inventorySaveStatus !== 'saved' && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            top: 'calc(64px + env(safe-area-inset-top))',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: inventorySaveStatus === 'error' ? '6px 6px 6px 14px' : '8px 14px',
+            borderRadius: '999px',
+            fontSize: '14px',
+            fontWeight: 600,
+            color: 'white',
+            background: inventorySaveStatus === 'error' ? '#b91c1c' : '#374151',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.2)',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          {inventorySaveStatus === 'saving' ? 'Saving…' : 'Not saved'}
+          {inventorySaveStatus === 'error' && (
+            <button
+              onClick={() => inventoryQueue.current.request()}
+              style={{ minHeight: '36px', padding: '6px 14px', borderRadius: '999px', border: 'none', background: 'white', color: '#b91c1c', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}
+            >
+              Retry
+            </button>
+          )}
+        </div>
       )}
 
       {/* Add Inventory Modal */}
