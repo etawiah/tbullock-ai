@@ -26,6 +26,24 @@ const formatProviderError = (error) => {
   return status || 'Unknown error';
 };
 
+const MAX_CHAT_MESSAGES = 200;
+
+// Clean chat history for the model: text only, starts with a user turn,
+// strictly alternating (consecutive same-role turns are merged).
+const normalizeTurns = (history = []) => {
+  const turns = [];
+  for (const msg of history) {
+    const content = typeof msg?.content === 'string' ? msg.content.trim() : '';
+    if (!content) continue;
+    const role = msg.role === 'user' ? 'user' : 'assistant';
+    if (turns.length === 0 && role !== 'user') continue;
+    const last = turns.at(-1);
+    if (last && last.role === role) last.content += `\n\n${content}`;
+    else turns.push({ role, content });
+  }
+  return turns;
+};
+
 const cleanText = (value = '') => String(value).replace(/\s+/g, ' ').trim();
 
 const formatInventoryForPrompt = (inventory = []) => {
@@ -512,7 +530,8 @@ export default {
         } catch (error) {
           console.error('Backup of chatHistory failed (saving anyway):', error);
         }
-        await env.BARTENDER_KV.put('chatHistory', JSON.stringify(chatHistory));
+        // Keep the stored conversation bounded (the AI only ever sees the last 6).
+        await env.BARTENDER_KV.put('chatHistory', JSON.stringify(chatHistory.slice(-MAX_CHAT_MESSAGES)));
         return new Response(JSON.stringify({ success: true }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
@@ -787,12 +806,10 @@ KEY POINTS:
 - NEVER substitute when user is being specific
 `;
 
-        const recentHistory = Array.isArray(chatHistory) ? chatHistory.slice(-6) : [];
+        const recentHistory = normalizeTurns(Array.isArray(chatHistory) ? chatHistory.slice(-6) : []);
+        // The system prompt goes in systemInstruction; the conversation must start
+        // with a user turn and alternate, which normalizeTurns guarantees.
         const geminiContents = [
-          {
-            role: 'user',
-            parts: [{ text: systemPrompt }]
-          },
           ...recentHistory.map(msg => ({
             role: msg.role === 'user' ? 'user' : 'model',
             parts: [{ text: msg.content }]
@@ -802,6 +819,11 @@ KEY POINTS:
             parts: [{ text: message }]
           }
         ];
+        if (geminiContents.length > 1 && geminiContents.at(-2).role === 'user') {
+          // previous turn was also the user's (e.g. an unanswered message): merge
+          const last = geminiContents.pop();
+          geminiContents.at(-1).parts[0].text += `\n\n${last.parts[0].text}`;
+        }
 
         const groqMessages = [
           { role: 'system', content: systemPrompt },
@@ -813,6 +835,7 @@ KEY POINTS:
         ];
 
         const geminiPayload = {
+          systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: geminiContents,
           generationConfig: {
             temperature: 0.3,

@@ -1751,7 +1751,7 @@ function App() {
         body: JSON.stringify({
           message: userMessage,
           inventory: inventory,
-          chatHistory: messages
+          chatHistory: messages.slice(-6) // the Worker only uses the last few turns
         })
       })
 
