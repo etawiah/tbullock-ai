@@ -32,3 +32,13 @@ test('toMl uses one consistent conversion for every unit', async () => {
   assert.equal(toMl('abc', 'oz'), 0)
   assert.equal(toMl(5, 'unknown'), 5)
 })
+
+test('undo adds back exactly what a pour removed', async () => {
+  const { pouredAmounts, addBack, subtractPours } = await import('../src/lib/inventory.js')
+  const before = [{ name: 'Gin', amountRemaining: '500' }, { name: 'Vodka', amountRemaining: '20' }]
+  const after = subtractPours(before, [{ name: 'Gin', subtract: 45 }, { name: 'Vodka', subtract: 45 }])
+  const poured = pouredAmounts(before, after)
+  assert.deepEqual(poured, [{ name: 'Gin', ml: 45 }, { name: 'Vodka', ml: 20 }])
+  const undone = addBack(after, poured)
+  assert.deepEqual(undone.map(i => i.amountRemaining), ['500', '20'])
+})

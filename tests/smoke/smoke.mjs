@@ -192,6 +192,10 @@ await scenario('quick-adjust', async expect => {
   const after = parseFloat(currentKV.json('inventory').find(i => i.name === name).amountRemaining)
   expect('-Shot is saved to storage', Math.abs(before - after - 44.36) < 1, `before=${before} after=${after}`)
   await shot(page, 'inventory-after-shot')
+  expect('toast offers Undo', await page.getByRole('button', { name: 'Undo' }).isVisible().catch(() => false))
+  await page.getByRole('button', { name: 'Undo' }).click(); await settle(page, 1500)
+  const undone = parseFloat(currentKV.json('inventory').find(i => i.name === name).amountRemaining)
+  expect('Undo restores and saves the amount', undone === before, `after undo=${undone}`)
   await ctx.close()
 })
 

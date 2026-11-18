@@ -6,7 +6,7 @@ import { loadList, requestJson } from './lib/api'
 import { createSaveQueue } from './lib/saveQueue'
 import { createListSync } from './lib/listSync'
 import { mergeChanges, recipeKey, shoppingKey } from './lib/mergeChanges'
-import { subtractPours, subtractAt, ML_PER_OZ, toMl } from './lib/inventory'
+import { subtractPours, subtractAt, ML_PER_OZ, toMl, pouredAmounts, addBack } from './lib/inventory'
 import { isCoveredByInventory } from './lib/shopping'
 
 // Unit conversion utilities
@@ -1012,21 +1012,6 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
         }
       })
 
-    // Build detailed confirmation message
-    const bottleList = updates
-      .map(u => {
-        const brandPrefix = u.brand ? `${u.brand} ` : ''
-        const amountText = `${u.amount} ${u.unit}`
-        if (u.ingredient.toLowerCase() === u.name.toLowerCase()) {
-          // Exact match - just show the amount
-          return `  • ${brandPrefix}${u.name}: ${amountText}`
-        } else {
-          // Generic ingredient matched to specific bottle
-          return `  • ${u.ingredient}: ${amountText} (using ${brandPrefix}${u.name})`
-        }
-      })
-      .join('\n')
-
     // Remember the bottles picked for this recipe (saved with the favorite).
     // This used to call onEdit, which opened the recipe editor after every drink.
     const remembered = { ...(recipe.selectedBottles || {}), ...selectedBottles }
@@ -1034,8 +1019,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       onRememberBottles?.({ ...recipe, selectedBottles: remembered })
     }
 
-    onMake(updates)
-    alert(`Made ${recipe.name}!\n\nUsed from inventory:\n${bottleList}\n\nInventory updated.`)
+    onMake(updates, recipe.name)
     setShowBottleSelection(false)
   }
 
@@ -1988,10 +1972,40 @@ function App() {
   }
 
   // Subtract the poured amounts and save immediately (no AI call on this path).
-  const makeRecipe = (updates) => commitInventory(inv => subtractPours(inv, updates))
+  // Undo toast (replaces the blocking alert after a pour)
+  const [toast, setToast] = useState(null) // { message, undo }
+  const toastTimer = useRef(null)
+  const showToast = (message, undo) => {
+    clearTimeout(toastTimer.current)
+    setToast({ message, undo })
+    toastTimer.current = setTimeout(() => setToast(null), 5000)
+  }
+
+  // Apply a pour, save it, and offer Undo (which adds the amounts back).
+  const pourWithUndo = (mutate, describe) => {
+    const before = latestInventory.current
+    const saved = commitInventory(mutate)
+    const poured = pouredAmounts(before, latestInventory.current)
+    showToast(describe(poured), poured.length === 0 ? null : () => {
+      setToast(null)
+      commitInventory(inv => addBack(inv, poured))
+      hapticFeedback('light')
+    })
+    return saved
+  }
+  const formatPoured = (poured) => poured.map(p => `${Math.round(p.ml)} ml ${p.name}`).join(', ')
+
+  // Subtract the poured amounts and save immediately (no AI call on this path).
+  const makeRecipe = (updates, recipeName = 'drink') => pourWithUndo(
+    inv => subtractPours(inv, updates),
+    poured => `Made ${recipeName}.${poured.length ? ` Used ${formatPoured(poured)}.` : ''}`
+  )
 
   // Quick Adjust (-1 oz / -Shot / -2 oz): subtract and save immediately
-  const quickAdjust = (index, ozAmount) => commitInventory(inv => subtractAt(inv, index, ozAmount * ML_PER_OZ))
+  const quickAdjust = (index, ozAmount) => pourWithUndo(
+    inv => subtractAt(inv, index, ozAmount * ML_PER_OZ),
+    poured => (poured.length ? `−${formatPoured(poured)}` : 'That bottle is already empty.')
+  )
 
   // Shopping List Functions
   const addToShoppingList = (item) => {
@@ -4007,7 +4021,7 @@ function App() {
 
       {/* #9: Floating Action Button (FAB) */}
       {/* Hidden on Chat: it covered the Menu tab there, and its actions don't apply. */}
-      {isMobile && !fabMenuOpen && currentView !== 'chat' && currentView !== 'menu' && (
+      {isMobile && !fabMenuOpen && !toast && currentView !== 'chat' && currentView !== 'menu' && (
         <button
           aria-label="Quick actions"
           onClick={() => {
@@ -4188,6 +4202,42 @@ function App() {
               style={{ minHeight: '36px', padding: '6px 14px', borderRadius: '999px', border: 'none', background: 'white', color: '#b91c1c', fontWeight: 700, fontSize: '14px', cursor: 'pointer' }}
             >
               Retry
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Undo toast */}
+      {toast && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'fixed',
+            left: '12px',
+            right: '12px',
+            bottom: isMobile ? 'calc(76px + env(safe-area-inset-bottom))' : '24px',
+            maxWidth: '560px',
+            margin: '0 auto',
+            zIndex: 2000,
+            display: 'flex',
+            alignItems: 'center',
+            gap: '12px',
+            padding: '10px 10px 10px 16px',
+            borderRadius: '12px',
+            background: '#1f2937',
+            color: 'white',
+            fontSize: '15px',
+            boxShadow: '0 6px 20px rgba(0,0,0,0.25)'
+          }}
+        >
+          <span style={{ flex: 1 }}>{toast.message}</span>
+          {toast.undo && (
+            <button
+              onClick={toast.undo}
+              style={{ minHeight: '44px', minWidth: '72px', padding: '8px 16px', borderRadius: '8px', border: 'none', background: '#fbbf24', color: '#111827', fontWeight: 700, fontSize: '15px', cursor: 'pointer' }}
+            >
+              Undo
             </button>
           )}
         </div>

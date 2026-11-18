@@ -43,3 +43,27 @@ export function subtractAt(inventory, index, ml) {
     return { ...item, amountRemaining: String(roundMl(Math.max(0, current - ml))) }
   })
 }
+
+// Amounts poured by a change: compares the same positions before/after.
+export function pouredAmounts(before, after) {
+  const poured = []
+  after.forEach((item, i) => {
+    const prev = before[i]
+    if (!prev || prev.name !== item.name) return
+    const ml = (parseFloat(prev.amountRemaining) || 0) - (parseFloat(item.amountRemaining) || 0)
+    if (ml > 0) poured.push({ name: item.name, ml })
+  })
+  return poured
+}
+
+// Undo a pour by adding the amounts back (works even after the other phone saved).
+export function addBack(inventory, poured) {
+  const next = [...inventory]
+  poured.forEach(({ name, ml }) => {
+    const idx = next.findIndex(item => item.name === name)
+    if (idx === -1) return
+    const current = parseFloat(next[idx].amountRemaining) || 0
+    next[idx] = { ...next[idx], amountRemaining: String(roundMl(current + ml)) }
+  })
+  return next
+}
