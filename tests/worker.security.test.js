@@ -30,3 +30,10 @@ test('wrangler.toml keeps workers.dev and preview URLs off and has no routes', (
   assert.match(active, /^preview_urls = false$/m)
   assert.doesNotMatch(active, /^\s*routes?\s*=/m)
 })
+
+test('wrangler dev --remote uses a separate preview KV, not production', () => {
+  const toml = fs.readFileSync(new URL('../wrangler.toml', import.meta.url), 'utf8')
+  const id = toml.match(/^id = "([0-9a-f]+)"/m)[1]
+  const preview = toml.match(/^preview_id = "([0-9a-f]+)"/m)[1]
+  assert.notEqual(id, preview)
+})

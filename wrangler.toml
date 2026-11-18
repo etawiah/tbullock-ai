@@ -24,11 +24,13 @@ name = "bartender-api-dev"
 main = "worker/worker.js"
 vars = { ENVIRONMENT = "development" }
 
-# KV Namespace for storing inventory, recipes, favorites, menu, chat history
+# KV Namespace for storing inventory, recipes, favorites, menu, chat history.
+# preview_id is a separate, empty namespace (BARTENDER_KV_preview) so
+# `wrangler dev --remote` can never write to your real data.
 [[kv_namespaces]]
 binding = "BARTENDER_KV"
 id = "d55eed47007140c0be8b759b3789bfbd"
-preview_id = "d55eed47007140c0be8b759b3789bfbd"
+preview_id = "c39c2a7f25074bc0983efec55426bf52"
 
 # Secrets (set these with: wrangler secret put GEMINI_API_KEY)
 # GEMINI_API_KEY - Your Google Gemini API key (required for chat endpoint)
