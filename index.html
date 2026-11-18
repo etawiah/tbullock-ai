@@ -81,6 +81,35 @@
         color: #888;
       }
 
+      /* Dark mode for the inline-styled React UI. Components hard-code light
+         colours inline, so these rules remap the few light surfaces and grey
+         text colours they use (matched on the browser's serialised style
+         attribute). Coloured buttons and badges are left untouched. */
+      body.dark-mode { color-scheme: dark; }
+      body.dark-mode [style*="background: white"],
+      body.dark-mode [style*="background: rgb(255, 255, 255)"] { background: #24253a !important; }
+      body.dark-mode [style*="background: rgb(249, 250, 251)"] { background: #2c2e46 !important; }
+      body.dark-mode [style*="background: rgb(245, 245, 245)"] { background: #17182b !important; }
+      body.dark-mode [style*="background: rgb(243, 244, 246)"],
+      body.dark-mode [style*="background: rgb(229, 231, 235)"] { background: #34365a !important; }
+      body.dark-mode [style*="background: rgb(254, 243, 199)"] { background: #3a3220 !important; }
+      body.dark-mode [style*="background: rgb(239, 246, 255)"] { background: #263463 !important; }
+      body.dark-mode [style*="background: rgb(254, 242, 242)"] { background: #3b1d24 !important; }
+      body.dark-mode [style*="color: rgb(17, 17, 17)"],
+      body.dark-mode [style*="color: rgb(51, 51, 51)"] { color: #f1f1f6 !important; }
+      body.dark-mode [style*="color: rgb(55, 65, 81)"],
+      body.dark-mode [style*="color: rgb(75, 85, 99)"] { color: #d4d6e4 !important; }
+      body.dark-mode [style*="color: rgb(107, 114, 128)"],
+      body.dark-mode [style*="color: rgb(102, 102, 102)"],
+      body.dark-mode [style*="color: rgb(153, 153, 153)"] { color: #b3b6c9 !important; }
+      body.dark-mode [style*="color: rgb(153, 27, 27)"],
+      body.dark-mode [style*="color: rgb(220, 38, 38)"] { color: #fca5a5 !important; }
+      body.dark-mode [style*="color: rgb(5, 150, 105)"] { color: #6ee7b7 !important; }
+      body.dark-mode [style*="border: 1px solid rgb(229, 231, 235)"],
+      body.dark-mode [style*="border: 1px solid rgb(209, 213, 219)"],
+      body.dark-mode [style*="border-top: 1px solid rgb(229, 231, 235)"],
+      body.dark-mode [style*="border-top: 1px solid rgb(224, 224, 224)"] { border-color: #3d3f5c !important; }
+
       /* #5: Pull-to-refresh spinner animation */
       @keyframes spin {
         from {
