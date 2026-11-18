@@ -237,6 +237,25 @@ await scenario('bottle-picker', async expect => {
   await ctx.close()
 })
 
+await scenario('two-phones', async expect => {
+  const a = await newPage()
+  const b = await newPage()
+  const amount = name => parseFloat(currentKV.json('inventory').find(i => i.name === name).amountRemaining)
+  for (const p of [a.page, b.page]) { await tab(p, 'Inventory').click(); await settle(p) }
+  // Phone A: -Shot on the first Vodka. Phone B (loaded before A saved): -Shot on the first Gin.
+  await a.page.getByText('Vodka', { exact: true }).first().click(); await settle(a.page)
+  await b.page.getByText('Gin', { exact: true }).first().click(); await settle(b.page)
+  const vodka = 'New Amsterdam Vodka'
+  const gin = currentKV.json('inventory').filter(i => i.type === 'Gin').map(i => i.name).sort((x, y) => x.toLowerCase().localeCompare(y.toLowerCase()))[0]
+  const [v0, g0] = [amount(vodka), amount(gin)]
+  await a.page.getByRole('button', { name: /-Shot|Remove 1 shot/ }).first().click(); await settle(a.page, 1200)
+  await b.page.getByRole('button', { name: /-Shot|Remove 1 shot/ }).first().click(); await settle(b.page, 2000)
+  expect("phone A's pour survived phone B's save", amount(vodka) < v0, `${vodka}: ${v0} -> ${amount(vodka)}`)
+  expect("phone B's pour saved too", amount(gin) < g0, `${gin}: ${g0} -> ${amount(gin)}`)
+  expect('no page errors on either phone', a.errors.length + b.errors.length === 0, [...a.errors, ...b.errors].join('; '))
+  await a.ctx.close(); await b.ctx.close()
+})
+
 await scenario('delete-favorite', async expect => {
   const seed = seedData()
   seed.recipes = seed.recipes.slice(0, 1)

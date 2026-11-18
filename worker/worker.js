@@ -1,5 +1,6 @@
 ﻿// Cloudflare Worker - Handles AI requests and inventory management
 import { parseInventoryUpdate, applyInventoryUpdates, describeUpdate } from './inventoryUpdate.js';
+import { readList, readRev, saveList } from './lists.js';
 // Frontend (bartender.tawiah.net) is protected by Cloudflare Access
 // Worker endpoints trust authenticated requests from the protected frontend
 
@@ -212,6 +213,11 @@ function corsHeadersFor(request, url) {
   return headers;
 }
 
+const json = (body, status, corsHeaders) => new Response(JSON.stringify(body), {
+  status,
+  headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+});
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -223,24 +229,21 @@ export default {
     }
 
     try {
-      // Route: Get inventory
+      // Route: Get inventory (stored=false means never saved, so the app may seed starter data)
       if (url.pathname === '/api/inventory' && request.method === 'GET') {
-        const storedInventory = await env.BARTENDER_KV.get('inventory', { type: 'json' });
-        const inventory = Array.isArray(storedInventory) ? storedInventory : [];
-        // stored=false means "never saved" (first run), so the app may seed starter data.
-        return new Response(JSON.stringify({ inventory, stored: storedInventory !== null }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const [{ items, stored }, rev] = await Promise.all([readList(env.BARTENDER_KV, 'inventory'), readRev(env.BARTENDER_KV, 'inventory')]);
+        return json({ inventory: items, stored, rev }, 200, corsHeaders);
       }
 
-      // Route: Save inventory
-      // Frontend is protected by Cloudflare Access, so we trust authenticated requests
+      // Route: Save inventory (send the `rev` you loaded; 409 + current data if it changed meanwhile)
       if (url.pathname === '/api/inventory' && request.method === 'POST') {
-        const { inventory } = await request.json();
-        await env.BARTENDER_KV.put('inventory', JSON.stringify(inventory));
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const body = await request.json();
+        const result = await saveList(env.BARTENDER_KV, 'inventory', body?.inventory, body?.rev);
+        if (result.status === 'invalid') return json({ error: 'inventory must be an array' }, 400, corsHeaders);
+        if (result.status === 'conflict') {
+          return json({ error: 'Changed on another device', conflict: true, rev: result.rev, inventory: result.items }, 409, corsHeaders);
+        }
+        return json({ success: true, rev: result.rev }, 200, corsHeaders);
       }
 
       // Route: Enrich inventory with flavor notes
@@ -437,42 +440,38 @@ export default {
         });
       }
 
-      // Route: Get custom recipes
+      // Route: Get custom recipes (stored=false means never saved, so the app may seed starter data)
       if (url.pathname === '/api/recipes' && request.method === 'GET') {
-        const storedRecipes = await env.BARTENDER_KV.get('recipes', { type: 'json' });
-        const recipes = Array.isArray(storedRecipes) ? storedRecipes : [];
-        // stored=false means "never saved" (first run), so the app may seed starter data.
-        return new Response(JSON.stringify({ recipes, stored: storedRecipes !== null }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const [{ items, stored }, rev] = await Promise.all([readList(env.BARTENDER_KV, 'recipes'), readRev(env.BARTENDER_KV, 'recipes')]);
+        return json({ recipes: items, stored, rev }, 200, corsHeaders);
       }
 
-      // Route: Save custom recipes
+      // Route: Save custom recipes (send the `rev` you loaded; 409 + current data if it changed meanwhile)
       if (url.pathname === '/api/recipes' && request.method === 'POST') {
-        const { recipes } = await request.json();
-        await env.BARTENDER_KV.put('recipes', JSON.stringify(recipes));
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const body = await request.json();
+        const result = await saveList(env.BARTENDER_KV, 'recipes', body?.recipes, body?.rev);
+        if (result.status === 'invalid') return json({ error: 'recipes must be an array' }, 400, corsHeaders);
+        if (result.status === 'conflict') {
+          return json({ error: 'Changed on another device', conflict: true, rev: result.rev, recipes: result.items }, 409, corsHeaders);
+        }
+        return json({ success: true, rev: result.rev }, 200, corsHeaders);
       }
 
-      // Route: Get shopping list
+      // Route: Get shopping list (stored=false means never saved, so the app may seed starter data)
       if (url.pathname === '/api/shopping' && request.method === 'GET') {
-        const storedShopping = await env.BARTENDER_KV.get('shopping', { type: 'json' });
-        const shopping = Array.isArray(storedShopping) ? storedShopping : [];
-        // stored=false means "never saved" (first run), so the app may seed starter data.
-        return new Response(JSON.stringify({ shopping, stored: storedShopping !== null }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const [{ items, stored }, rev] = await Promise.all([readList(env.BARTENDER_KV, 'shopping'), readRev(env.BARTENDER_KV, 'shopping')]);
+        return json({ shopping: items, stored, rev }, 200, corsHeaders);
       }
 
-      // Route: Save shopping list
+      // Route: Save shopping list (send the `rev` you loaded; 409 + current data if it changed meanwhile)
       if (url.pathname === '/api/shopping' && request.method === 'POST') {
-        const { shopping } = await request.json();
-        await env.BARTENDER_KV.put('shopping', JSON.stringify(shopping));
-        return new Response(JSON.stringify({ success: true }), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const body = await request.json();
+        const result = await saveList(env.BARTENDER_KV, 'shopping', body?.shopping, body?.rev);
+        if (result.status === 'invalid') return json({ error: 'shopping must be an array' }, 400, corsHeaders);
+        if (result.status === 'conflict') {
+          return json({ error: 'Changed on another device', conflict: true, rev: result.rev, shopping: result.items }, 409, corsHeaders);
+        }
+        return json({ success: true, rev: result.rev }, 200, corsHeaders);
       }
 
       // Route: Get favorites
@@ -894,6 +893,7 @@ KEY POINTS:
         // to the *stored* inventory (not the possibly stale copy the phone sent), the
         // block is removed from the reply, and a factual summary is appended.
         let updatedInventory = null;
+        let inventoryRev = null;
         const parsedUpdate = parseInventoryUpdate(aiResponse);
         if (parsedUpdate.found) {
           aiResponse = parsedUpdate.text;
@@ -901,12 +901,13 @@ KEY POINTS:
             aiResponse += `\n\n${describeUpdate({ applied: [], unmatched: [] }, true)}`;
           } else if (parsedUpdate.updates.length > 0) {
             try {
-              const stored = await env.BARTENDER_KV.get('inventory', { type: 'json' });
-              const base = Array.isArray(stored) ? stored : (Array.isArray(inventory) ? inventory : []);
+              const { items: storedItems, stored } = await readList(env.BARTENDER_KV, 'inventory');
+              const base = stored ? storedItems : (Array.isArray(inventory) ? inventory : []);
               const result = applyInventoryUpdates(base, parsedUpdate.updates);
               if (result.applied.length > 0) {
-                await env.BARTENDER_KV.put('inventory', JSON.stringify(result.inventory));
+                const saved = await saveList(env.BARTENDER_KV, 'inventory', result.inventory);
                 updatedInventory = result.inventory;
+                inventoryRev = saved.rev;
               }
               aiResponse += `\n\n${describeUpdate(result)}`;
             } catch (error) {
@@ -918,7 +919,8 @@ KEY POINTS:
 
         return new Response(JSON.stringify({
           response: aiResponse.trim(),
-          updatedInventory: updatedInventory
+          updatedInventory: updatedInventory,
+          inventoryRev
         }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });

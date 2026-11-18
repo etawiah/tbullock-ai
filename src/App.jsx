@@ -4,6 +4,8 @@ import BottomTabBar from './components/BottomTabBar'
 import { API_BASE } from './lib/config'
 import { loadList, requestJson } from './lib/api'
 import { createSaveQueue } from './lib/saveQueue'
+import { createListSync } from './lib/listSync'
+import { mergeChanges, recipeKey, shoppingKey } from './lib/mergeChanges'
 import { subtractPours, subtractAt, ML_PER_OZ } from './lib/inventory'
 import { isCoveredByInventory } from './lib/shopping'
 
@@ -1451,7 +1453,8 @@ function App() {
 
   const loadRecipes = async () => {
     try {
-      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'recipes', field: 'recipes', seedUrl: '/initial-recipes.json' })
+      const { items, rev } = await loadList(fetch, { base: WORKER_URL, path: 'recipes', field: 'recipes', seedUrl: '/initial-recipes.json' })
+      syncedLists.current.recipes.reset(items, rev)
       loadedValues.current.recipes = items
       setCustomRecipes(items)
       markLoaded('recipes', true)
@@ -1463,7 +1466,8 @@ function App() {
 
   const loadShopping = async () => {
     try {
-      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'shopping', field: 'shopping' })
+      const { items, rev } = await loadList(fetch, { base: WORKER_URL, path: 'shopping', field: 'shopping' })
+      syncedLists.current.shopping.reset(items, rev)
       loadedValues.current.shopping = items
       setShoppingList(items)
       markLoaded('shopping', true)
@@ -1492,33 +1496,52 @@ function App() {
     if (loadErrors.chat) loadChatHistory()
   }
 
-  // Save functions
-  const saveRecipes = async (recipes) => {
-    try {
-      await fetch(`${WORKER_URL}/recipes`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recipes })
-      })
-    } catch (error) {
-      console.error('Failed to save recipes:', error)
+  // Favorites and the shopping list are saved through a conflict-safe sync:
+  // each change is recorded as a keyed diff, so if the other phone saved in the
+  // meantime our change is merged onto theirs instead of overwriting it.
+  const latestLists = useRef({ recipes: [], shopping: [] })
+  latestLists.current.recipes = customRecipes
+  latestLists.current.shopping = shoppingList
+  const [listSaveError, setListSaveError] = useState(null)
+
+  const makeSyncedList = (key, path, field, keyFn, setState) => {
+    let base = []
+    const applyFromServer = (items) => {
+      loadedValues.current[key] = items
+      latestLists.current[key] = items
+      base = items
+      setState(items)
+    }
+    const sync = createListSync({
+      post: (items, rev) => requestJson(fetch, `${WORKER_URL}/${path}`, { method: 'POST', body: { [field]: items, ...(rev !== null ? { rev } : {}) } }),
+      getValue: () => latestLists.current[key],
+      setValue: applyFromServer,
+      extract: (body) => (Array.isArray(body?.[field]) ? body[field] : [])
+    })
+    const queue = createSaveQueue({
+      getValue: () => null,
+      save: () => sync.save(),
+      onStatus: (status, error) => {
+        if (status === 'error') setListSaveError(`Couldn't save your ${key === 'recipes' ? 'favorites' : 'shopping list'}${error?.message ? ` (${error.message})` : ''}.`)
+        if (status === 'saved') setListSaveError(null)
+      }
+    })
+    return {
+      reset(items, rev) { base = items; sync.reset(rev) },
+      changed(next) {
+        const prev = base
+        base = next
+        sync.record(server => mergeChanges(prev, next, server, keyFn))
+        queue.request()
+      },
+      retry: () => queue.request()
     }
   }
-
-  const saveShopping = async (shopping) => {
-    try {
-      console.log(`[Shopping] Saving ${shopping.length} items to backend:`, shopping)
-      const response = await fetch(`${WORKER_URL}/shopping`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shopping })
-      })
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      console.log('[Shopping] Save successful')
-    } catch (error) {
-      console.error('[Shopping] Failed to save shopping list:', error)
+  const syncedLists = useRef(null)
+  if (!syncedLists.current) {
+    syncedLists.current = {
+      recipes: makeSyncedList('recipes', 'recipes', 'recipes', recipeKey, (v) => setCustomRecipes(v)),
+      shopping: makeSyncedList('shopping', 'shopping', 'shopping', shoppingKey, (v) => setShoppingList(v))
     }
   }
 
@@ -1537,14 +1560,16 @@ function App() {
   // Save recipes to backend (only after a successful load, and only real changes)
   useEffect(() => {
     if (dataLoaded.recipes && customRecipes !== loadedValues.current.recipes) {
-      saveRecipes(customRecipes)
+      loadedValues.current.recipes = customRecipes
+      syncedLists.current.recipes.changed(customRecipes)
     }
   }, [customRecipes, dataLoaded.recipes])
 
   // Save shopping list to backend (only after a successful load, and only real changes)
   useEffect(() => {
     if (dataLoaded.shopping && shoppingList !== loadedValues.current.shopping) {
-      saveShopping(shoppingList)
+      loadedValues.current.shopping = shoppingList
+      syncedLists.current.shopping.changed(shoppingList)
     }
   }, [shoppingList, dataLoaded.shopping])
 
@@ -1592,11 +1617,23 @@ function App() {
 
   // One queue for all inventory saves: a save requested while another is in
   // flight is never dropped, and rapid taps are coalesced into one request.
+  // Each change is also recorded as a function so that, if the other phone saved
+  // first (409), it can be replayed on top of their version instead of overwriting.
+  const inventorySync = useRef(null)
+  if (!inventorySync.current) {
+    inventorySync.current = createListSync({
+      post: (items, rev) => requestJson(fetch, `${WORKER_URL}/inventory`, { method: 'POST', body: { inventory: items, ...(rev !== null ? { rev } : {}) } }),
+      getValue: () => latestInventory.current,
+      setValue: (items) => setInventory(ensureInventoryShape(items)),
+      extract: (body) => (Array.isArray(body?.inventory) ? body.inventory : []),
+      confirmOverwrite: () => confirm('The inventory was changed on another device while you were editing.\n\nOK = keep YOUR version (overwrite theirs)\nCancel = discard your edits and show theirs')
+    })
+  }
   const inventoryQueue = useRef(null)
   if (!inventoryQueue.current) {
     inventoryQueue.current = createSaveQueue({
-      getValue: () => latestInventory.current,
-      save: (value) => requestJson(fetch, `${WORKER_URL}/inventory`, { method: 'POST', body: { inventory: value } }),
+      getValue: () => null,
+      save: () => inventorySync.current.save(),
       onStatus: (status) => setInventorySaveStatus(status)
     })
   }
@@ -1605,18 +1642,20 @@ function App() {
 
   // Apply a change to the inventory and save it right away.
   // Returns a promise that resolves to true when saved.
-  const commitInventory = (mutate) => {
+  const commitInventory = (mutate, { replace = false } = {}) => {
     if (!dataLoadedRef.current.inventory) {
       alert("Your inventory hasn't loaded yet, so this change can't be saved. Tap Retry at the top first.")
       return Promise.resolve(false)
     }
     setInventory(mutate(latestInventory.current))
+    inventorySync.current.record(mutate, { replace })
     return inventoryQueue.current.request().then(() => true, () => false)
   }
 
   const loadInventory = async () => {
     try {
-      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'inventory', field: 'inventory', seedUrl: '/initial-inventory.json' })
+      const { items, rev } = await loadList(fetch, { base: WORKER_URL, path: 'inventory', field: 'inventory', seedUrl: '/initial-inventory.json' })
+      inventorySync.current.reset(rev)
       setInventory(ensureInventoryShape(items))
       markLoaded('inventory', true)
     } catch (error) {
@@ -1672,8 +1711,9 @@ function App() {
         }
       }
 
-      // Save the enriched or original inventory
+      // Save the enriched or original inventory (a whole-list replace)
       setInventory(enrichedInventory)
+      inventorySync.current.record(() => enrichedInventory, { replace: true })
       await inventoryQueue.current.request()
       setEditingInventory(false)
       if (!finalStatusMessage) {
@@ -1725,7 +1765,8 @@ function App() {
 
         // If inventory was updated, refresh it
         if (data.updatedInventory) {
-          setInventory(data.updatedInventory)
+          setInventory(ensureInventoryShape(data.updatedInventory))
+          inventorySync.current.setRev(data.inventoryRev)
         }
       }
     } catch (error) {
@@ -1866,7 +1907,7 @@ function App() {
           if (Array.isArray(imported)) {
             const normalized = ensureInventoryShape(imported)
             if (!confirm(`Replace your ${inventory.length} bottles with the ${normalized.length} in this file?`)) return
-            commitInventory(() => normalized).then(saved => {
+            commitInventory(() => normalized, { replace: true }).then(saved => {
               alert(saved ? `Imported and saved ${normalized.length} items.` : `Imported ${normalized.length} items, but saving failed. Check your connection.`)
             })
           } else {
@@ -2342,6 +2383,18 @@ function App() {
         </div>
       )}
 
+      {listSaveError && (
+        <div role="alert" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', padding: '10px 16px', background: '#fef2f2', color: '#991b1b', borderBottom: '1px solid #fecaca', fontSize: '14px' }}>
+          <span>{listSaveError}</span>
+          <button
+            onClick={() => { syncedLists.current.recipes.retry(); syncedLists.current.shopping.retry() }}
+            style={{ minHeight: '44px', padding: '8px 16px', background: '#991b1b', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Main Content - Three-Way View Switching */}
       {currentView === 'chat' && (
         <>
@@ -2746,6 +2799,7 @@ function App() {
                           if (remainingMissing === 0) {
                             setNoteStatus(`Success: generated and saved ${processedCount} flavor notes!`)
 
+                            inventorySync.current.record(() => currentInventory, { replace: true })
                             await inventoryQueue.current.request()
 
                             hapticFeedback('success')
@@ -2758,6 +2812,7 @@ function App() {
 
                         if (remainingMissing > 0) {
                           if (processedCount > 0) {
+                            inventorySync.current.record(() => currentInventory, { replace: true })
                             await inventoryQueue.current.request()
                           }
 
