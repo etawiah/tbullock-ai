@@ -257,6 +257,7 @@ await scenario('bottle-picker', async expect => {
   currentKV = makeKV(seed)
   const { ctx, page, errors } = await newPage()
   await tab(page, 'Favorites').click(); await settle(page)
+  await shot(page, 'favorites')
   await page.locator('button:has-text("Make This Drink"):not([disabled])').first().click(); await settle(page)
   await shot(page, 'bottle-picker')
   expect('bottle picker opens (no white screen)', await page.getByText('Select Bottles').isVisible().catch(() => false))

@@ -25,3 +25,6 @@ in that file. This page lists what is still open._
 - Dark mode remaps the app's light colours with CSS in `index.html`. New
   components should use the existing colour values so they're covered.
 - The Undo toast lasts 5 seconds.
+- The floating + button still floats over whichever card is under it while
+  you scroll (normal for a floating button); lists have extra bottom space so
+  any card can be scrolled clear of it.
