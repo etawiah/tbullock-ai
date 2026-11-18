@@ -378,7 +378,8 @@ await scenario('offline', async expect => {
   await page.locator('input[placeholder^="Ask for a drink"]').fill('Make me a daiquiri')
   await page.getByRole('button', { name: 'Send' }).click(); await settle(page, 800)
   await shot(page, 'offline-chat')
-  expect('offline error shown in chat', await page.getByText(/offline|connection|try again/i).first().isVisible().catch(() => false))
+  expect('offline error shown in chat', await page.getByText(/You're offline/).first().isVisible().catch(() => false))
+  expect('typed message restored for resending', (await page.locator('input[placeholder^="Ask for a drink"]').inputValue()) === 'Make me a daiquiri')
   await ctx.close()
 })
 

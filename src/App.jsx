@@ -1598,7 +1598,7 @@ function App() {
   // startup state would overwrite the stored conversation)
   useEffect(() => {
     if (dataLoaded.chat && messages !== loadedValues.current.chat) {
-      saveChatHistory(messages)
+      saveChatHistory(messages.filter(m => !m.isError))
     }
   }, [messages, dataLoaded.chat])
 
@@ -1747,41 +1747,37 @@ function App() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${WORKER_URL}/chat`, {
+      const data = await requestJson(fetch, `${WORKER_URL}/chat`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+        body: {
           message: userMessage,
           inventory: inventory,
-          chatHistory: messages.slice(-6) // the Worker only uses the last few turns
-        })
+          // the Worker only uses the last few turns; error notices aren't conversation
+          chatHistory: messages.filter(m => !m.isError).slice(-6)
+        }
       })
 
-      const data = await response.json()
-
-      if (data.error) {
-        const detailText = data.details ? ` (${data.details})` : ''
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: `Error: ${data.error}${detailText ? ` - ${detailText}` : ''}`
-        }])
-      } else {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: data.response
-        }])
-
-        // If inventory was updated, refresh it
-        if (data.updatedInventory) {
-          setInventory(ensureInventoryShape(data.updatedInventory))
-          inventorySync.current.setRev(data.inventoryRev)
-        }
-      }
-    } catch (error) {
       setMessages(prev => [...prev, {
         role: 'assistant',
-        content: 'Sorry, I encountered an error. Please try again.'
+        content: data.response
       }])
+
+      // If inventory was updated, refresh it
+      if (data.updatedInventory) {
+        setInventory(ensureInventoryShape(data.updatedInventory))
+        inventorySync.current.setRev(data.inventoryRev)
+      }
+    } catch (error) {
+      const offline = !navigator.onLine || error.status === 0
+      const signedOut = !offline && /Unexpected response/.test(error.message)
+      const content = offline
+        ? "You're offline, so that message wasn't sent. It's back in the message box — tap Send when you're connected."
+        : signedOut
+          ? 'Your sign-in may have expired. Reload the page, then try again.'
+          : `Sorry, that didn't work (${error.message}). Please try again.`
+      setMessages(prev => [...prev, { role: 'assistant', content, isError: true }])
+      // Give the user their text back so they don't have to retype it
+      if (offline || signedOut) setInput(userMessage)
     } finally {
       setLoading(false)
     }
