@@ -2036,7 +2036,8 @@ function App() {
       const distance = Math.max(0, currentY - pullStartY.current)
 
       if (distance > 0) {
-        e.preventDefault()
+        // React touch listeners are passive, so preventDefault() here only
+        // logged warnings; the browser's own overscroll handles the gesture.
         setPullDistance(Math.min(distance, pullThreshold * 1.5))
       }
     }
