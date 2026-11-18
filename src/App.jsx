@@ -4155,6 +4155,7 @@ function App() {
           inventory={inventory}
           customRecipes={customRecipes}
           onClose={() => setCurrentView('chat')}
+          isMobile={isMobile}
         />
       )}
 

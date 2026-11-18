@@ -215,7 +215,7 @@ const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.(ai-bartender|barmenu)\.pages\.de
 
 function corsHeadersFor(request, url) {
   const headers = {
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Vary': 'Origin'
   };
@@ -1315,6 +1315,12 @@ KEY POINTS:
         }
       }
 
+      // DELETE /api/menu/draft - Discard the saved draft
+      if (url.pathname === '/api/menu/draft' && request.method === 'DELETE') {
+        await env.BARTENDER_KV.delete('menu:draft');
+        return json({ success: true }, 200, corsHeaders);
+      }
+
       // GET /api/menu/admin - Full menu for admin (returns draft if exists, otherwise live)
       if (url.pathname === '/api/menu/admin' && request.method === 'GET') {
         try {
@@ -1390,8 +1396,9 @@ KEY POINTS:
               if (snapshot) {
                 snapshots.push({
                   version: i,
-                  updatedAt: snapshot.updatedAt,
-                  updatedBy: snapshot.updatedBy,
+                  // published menus record publishedAt/By; older saves used updatedAt/By
+                  updatedAt: snapshot.updatedAt || snapshot.publishedAt,
+                  updatedBy: snapshot.updatedBy || snapshot.publishedBy,
                   itemCount: snapshot.items?.length || 0
                 });
               }

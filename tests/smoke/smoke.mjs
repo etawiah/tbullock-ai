@@ -298,12 +298,20 @@ await scenario('chat-inventory-update', async expect => {
 
 await scenario('menu', async expect => {
   const { ctx, page, errors } = await newPage()
-  await tab(page, 'Inventory').click(); await settle(page, 300)
   await tab(page, 'Menu').click(); await settle(page, 1000)
   await shot(page, 'menu-editor')
-  await page.getByRole('button', { name: /Add .*Blood Orange Cosmo|^\+ Add$/ }).first().click(); await settle(page, 300)
+  await page.getByRole('button', { name: 'Add Blood Orange Cosmo to menu' }).click(); await settle(page, 300)
   await page.getByRole('button', { name: 'Publish' }).click(); await settle(page, 1200)
   expect('menu publishes', (currentKV.json('menu:live')?.items || []).length === 1)
+  // empty it again: remove the only item and publish
+  await page.getByRole('button', { name: 'Remove Blood Orange Cosmo from menu' }).click(); await settle(page, 300)
+  await page.getByRole('button', { name: 'Publish' }).click(); await settle(page, 1200)
+  expect('menu can be emptied', (currentKV.json('menu:live')?.items || []).length === 0)
+  await page.getByRole('button', { name: /Show Versions/ }).click(); await settle(page, 300)
+  expect('version history has real dates', !(await page.getByText('Invalid Date').count()))
+  await shot(page, 'menu-editor-versions')
+  const narrow = await page.evaluate(() => [...document.querySelectorAll('h3')].filter(h => /Available Recipes|Current Menu/.test(h.textContent)).map(h => Math.round(h.getBoundingClientRect().width)))
+  expect('columns stacked on phone (full width)', narrow.every(w => w > 300), narrow.join(','))
   expect('no page errors', errors.length === 0, errors.join('; '))
   await ctx.close()
 })

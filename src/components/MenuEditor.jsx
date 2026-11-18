@@ -19,7 +19,7 @@ import { API_BASE } from '../lib/config';
  * - onClose: Callback to close menu editor
  */
 
-const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose }) {
+const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose, isMobile = false }) {
   const WORKER_URL = API_BASE;
 
   const SPIRIT_TYPES = [
@@ -30,6 +30,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
   // State management
   const [draftMenu, setDraftMenu] = useState([]);
   const [liveMenu, setLiveMenu] = useState([]);
+  const [liveVersion, setLiveVersion] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [hasDraft, setHasDraft] = useState(false);
@@ -59,10 +60,12 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
         const liveResponse = await fetch(`${WORKER_URL}/menu`);
         const liveData = await liveResponse.json();
         setLiveMenu(liveData.items || []);
+        setLiveVersion(liveData.version || 0);
       } else {
         setDraftMenu([]);
         setHasDraft(false);
         setLiveMenu(data.items || []);
+        setLiveVersion(data.version || 0);
       }
     } catch (error) {
       console.error('Failed to load menus:', error);
@@ -104,7 +107,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
   };
 
   const addRecipeToMenu = (recipe) => {
-    const menuToUpdate = draftMenu.length > 0 ? draftMenu : liveMenu;
+    const menuToUpdate = hasDraft ? draftMenu : liveMenu;
     if (menuToUpdate.some(item => item.id === `menu-${recipe.id}`)) {
       setMessage('Recipe already on menu');
       return;
@@ -127,7 +130,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
     const updatedMenu = [...menuToUpdate, newMenuItem];
     const sortedMenu = sortMenu(updatedMenu);
 
-    if (draftMenu.length > 0) {
+    if (hasDraft) {
       setDraftMenu(sortedMenu);
     } else {
       setDraftMenu(sortedMenu);
@@ -138,10 +141,10 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
   };
 
   const removeFromMenu = (menuId) => {
-    const menuToUpdate = draftMenu.length > 0 ? draftMenu : liveMenu;
+    const menuToUpdate = hasDraft ? draftMenu : liveMenu;
     const updated = menuToUpdate.filter(item => item.id !== menuId);
 
-    if (draftMenu.length > 0) {
+    if (hasDraft) {
       setDraftMenu(updated);
     } else {
       setDraftMenu(updated);
@@ -150,12 +153,12 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
   };
 
   const updateMenuItemStatus = (menuId, newStatus) => {
-    const menuToUpdate = draftMenu.length > 0 ? draftMenu : liveMenu;
+    const menuToUpdate = hasDraft ? draftMenu : liveMenu;
     const updated = menuToUpdate.map(item =>
       item.id === menuId ? { ...item, status: newStatus } : item
     );
 
-    if (draftMenu.length > 0) {
+    if (hasDraft) {
       setDraftMenu(updated);
     } else {
       setDraftMenu(updated);
@@ -171,12 +174,12 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
   const saveEditedItem = () => {
     if (!editingItem) return;
 
-    const menuToUpdate = draftMenu.length > 0 ? draftMenu : liveMenu;
+    const menuToUpdate = hasDraft ? draftMenu : liveMenu;
     const updated = menuToUpdate.map(item =>
       item.id === editingItem.id ? editingItem : item
     );
 
-    if (draftMenu.length > 0) {
+    if (hasDraft) {
       setDraftMenu(updated);
     } else {
       setDraftMenu(updated);
@@ -239,12 +242,19 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           items: draftMenu,
-          version: liveMenu.version || 0
+          version: liveVersion
         })
       });
 
       const data = await response.json();
 
+      if (response.status === 409) {
+        setMessage('The menu was published from another device. Reloading the latest — your draft is kept.');
+        const live = await (await fetch(`${WORKER_URL}/menu`)).json();
+        setLiveMenu(live.items || []);
+        setLiveVersion(live.version || 0);
+        return;
+      }
       if (!response.ok) {
         setMessage(`Error: ${data.error}`);
         return;
@@ -252,6 +262,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
 
       // Update local state
       setLiveMenu(draftMenu);
+      setLiveVersion(data.version || liveVersion + 1);
       setDraftMenu([]);
       setHasDraft(false);
       setShowPreview(false);
@@ -265,11 +276,17 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
     }
   };
 
-  const discardDraft = () => {
-    if (window.confirm('Discard draft and return to live menu?')) {
+  const discardDraft = async () => {
+    if (!window.confirm('Discard draft and return to live menu?')) return;
+    try {
+      // Also delete the saved draft, or it comes back next time.
+      const response = await fetch(`${WORKER_URL}/menu/draft`, { method: 'DELETE' });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       setDraftMenu([]);
       setHasDraft(false);
       setMessage('Draft discarded');
+    } catch (error) {
+      setMessage(`Couldn't discard the saved draft: ${error.message}`);
     }
   };
 
@@ -304,21 +321,26 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
     }
   };
 
+  // Phones: one column, full height, room for the bottom tab bar.
+  const containerStyle = isMobile
+    ? { ...styles.container, flex: 1, maxHeight: 'none', borderRadius: 0, paddingBottom: 'calc(96px + env(safe-area-inset-bottom))' }
+    : styles.container;
+
   if (loading) {
     return (
-      <div style={styles.container}>
+      <div style={containerStyle}>
         <h2>Menu Editor</h2>
         <p>Loading...</p>
       </div>
     );
   }
 
-  const menuToDisplay = draftMenu.length > 0 ? draftMenu : liveMenu;
+  const menuToDisplay = hasDraft ? draftMenu : liveMenu;
   const recipesOnMenu = new Set(menuToDisplay.map(item => item.favoriteId));
   const recipesNotOnMenu = customRecipes.filter(r => !recipesOnMenu.has(r.id));
 
   return (
-    <div style={styles.container}>
+    <div style={containerStyle}>
       <div style={styles.header}>
         <div>
           <h2>📋 Menu Editor</h2>
@@ -328,7 +350,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
             </div>
           )}
         </div>
-        <button onClick={onClose} style={styles.closeButton}>✕</button>
+        <button onClick={onClose} style={styles.closeButton} aria-label="Close menu editor">✕</button>
       </div>
 
       {message && (
@@ -443,7 +465,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
         </div>
       )}
 
-      <div style={styles.row}>
+      <div style={isMobile ? { ...styles.row, gridTemplateColumns: '1fr' } : styles.row}>
         <div style={styles.column}>
           <h3>Available Recipes ({recipesNotOnMenu.length})</h3>
           <div style={styles.recipeList}>
@@ -453,16 +475,17 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
               recipesNotOnMenu.map(recipe => {
                 const isAvailable = checkIngredientAvailability(recipe.id);
                 return (
-                  <div key={recipe.id} style={{ ...styles.recipeCard, opacity: isAvailable ? 1 : 0.6 }}>
+                  <div key={recipe.id} style={{ ...styles.recipeCard, opacity: isAvailable ? 1 : 0.85 }}>
                     <div style={{ flex: 1 }}>
                       <div style={styles.recipeName}>{recipe.name}</div>
                       <div style={styles.recipeDetails}>
-                        {!isAvailable && <span style={{ color: '#f44336' }}>⚠️ Missing ingredients</span>}
+                        {!isAvailable && <span style={{ color: '#ff8a80' }}>⚠️ Missing ingredients</span>}
                       </div>
                     </div>
                     <button
                       onClick={() => addRecipeToMenu(recipe)}
                       style={styles.addButton}
+                      aria-label={`Add ${recipe.name} to menu`}
                     >
                       + Add
                     </button>
@@ -495,13 +518,15 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                     <button
                       onClick={() => startEditingItem(item)}
-                      style={{ padding: '4px 8px', backgroundColor: '#2196F3', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', fontSize: '0.75em' }}
+                      style={{ minHeight: '44px', minWidth: '44px', padding: '8px 12px', backgroundColor: '#1d64c8', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px' }}
+                      aria-label={`Edit ${item.name}`}
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => removeFromMenu(item.id)}
                       style={styles.removeButton}
+                      aria-label={`Remove ${item.name} from menu`}
                     >
                       ✕
                     </button>
@@ -519,7 +544,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
             <button
               onClick={saveDraft}
               disabled={saving}
-              style={{ ...styles.button, backgroundColor: '#FF9800', ...( saving ? styles.buttonDisabled : {}) }}
+              style={{ ...styles.button, backgroundColor: '#b45309', ...( saving ? styles.buttonDisabled : {}) }}
             >
               {saving ? 'Saving...' : 'Save Draft'}
             </button>
@@ -532,13 +557,13 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
             <button
               onClick={publishMenu}
               disabled={saving}
-              style={{ ...styles.button, backgroundColor: '#4CAF50', ...(saving ? styles.buttonDisabled : {}) }}
+              style={{ ...styles.button, backgroundColor: '#2e7d32', ...(saving ? styles.buttonDisabled : {}) }}
             >
               {saving ? 'Publishing...' : 'Publish'}
             </button>
             <button
               onClick={discardDraft}
-              style={{ ...styles.button, backgroundColor: '#f44336' }}
+              style={{ ...styles.button, backgroundColor: '#c62828' }}
             >
               Discard
             </button>
@@ -548,7 +573,7 @@ const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose 
             <button
               onClick={saveDraft}
               disabled={saving}
-              style={{ ...styles.button, backgroundColor: '#2196F3', ...(saving ? styles.buttonDisabled : {}) }}
+              style={{ ...styles.button, backgroundColor: '#1d64c8', ...(saving ? styles.buttonDisabled : {}) }}
             >
               {saving ? 'Saving...' : 'Save Draft'}
             </button>
@@ -624,7 +649,9 @@ const styles = {
     color: '#e0e0e0',
     fontSize: '24px',
     cursor: 'pointer',
-    padding: '0'
+    padding: '0',
+    minWidth: '44px',
+    minHeight: '44px'
   },
   row: {
     display: 'grid',
@@ -661,8 +688,9 @@ const styles = {
     color: '#aaa'
   },
   addButton: {
-    padding: '6px 12px',
-    backgroundColor: '#4CAF50',
+    minHeight: '44px',
+    padding: '8px 14px',
+    backgroundColor: '#2e7d32',
     color: '#fff',
     border: 'none',
     borderRadius: '4px',
@@ -702,8 +730,10 @@ const styles = {
     fontSize: '0.85em'
   },
   removeButton: {
-    padding: '4px 8px',
-    backgroundColor: '#f44336',
+    minHeight: '44px',
+    minWidth: '44px',
+    padding: '8px 12px',
+    backgroundColor: '#c62828',
     color: '#fff',
     border: 'none',
     borderRadius: '4px',
@@ -718,8 +748,9 @@ const styles = {
     flexWrap: 'wrap'
   },
   button: {
+    minHeight: '44px',
     padding: '10px 20px',
-    backgroundColor: '#2196F3',
+    backgroundColor: '#1d64c8',
     color: '#fff',
     border: 'none',
     borderRadius: '6px',
@@ -732,6 +763,7 @@ const styles = {
     cursor: 'not-allowed'
   },
   cancelButton: {
+    minHeight: '44px',
     padding: '10px 20px',
     backgroundColor: '#666',
     color: '#fff',
@@ -764,8 +796,9 @@ const styles = {
     border: '1px solid #555'
   },
   rollbackButton: {
-    padding: '6px 12px',
-    backgroundColor: '#FF9800',
+    minHeight: '44px',
+    padding: '8px 14px',
+    backgroundColor: '#b45309',
     color: '#fff',
     border: 'none',
     borderRadius: '4px',
