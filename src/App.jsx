@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, memo } from 'react'
 import MenuEditor from './components/MenuEditor'
 import BottomTabBar from './components/BottomTabBar'
 import { API_BASE } from './lib/config'
+import { loadList } from './lib/api'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -1345,11 +1346,18 @@ function App() {
   const [selectedItems, setSelectedItems] = useState(new Set())
   const [itemUnits, setItemUnits] = useState({})
 
-  // Data loading state to prevent race conditions on save
+  // Data loading state: a list is only auto-saved after it has been loaded
+  // successfully, so a failed load can never overwrite stored data.
   const [dataLoaded, setDataLoaded] = useState({
+    inventory: false,
     shopping: false,
-    recipes: false
+    recipes: false,
+    chat: false
   })
+  const [loadErrors, setLoadErrors] = useState({})
+  // The exact arrays that came from the server; auto-save skips these so a load
+  // doesn't immediately write the same data back.
+  const loadedValues = useRef({})
 
   // Add Item Modal state
   const [addItemModalOpen, setAddItemModalOpen] = useState(false)
@@ -1419,64 +1427,57 @@ function App() {
     loadChatHistory()
   }, [])
 
+  const markLoaded = (key, ok) => {
+    setDataLoaded(prev => ({ ...prev, [key]: ok || prev[key] }))
+    setLoadErrors(prev => {
+      const next = { ...prev }
+      if (ok) delete next[key]
+      else next[key] = true
+      return next
+    })
+  }
+
   const loadRecipes = async () => {
     try {
-      const response = await fetch(`${WORKER_URL}/recipes`)
-      const data = await response.json()
-      let recipesData = data.recipes || []
-
-      // If empty, load initial recipes
-      if (recipesData.length === 0) {
-        try {
-          const initialResponse = await fetch('/initial-recipes.json')
-          const initialData = await initialResponse.json()
-          recipesData = initialData || []
-          // Save initial recipes to backend
-          await fetch(`${WORKER_URL}/recipes`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ recipes: recipesData })
-          })
-        } catch (err) {
-          console.error('Failed to load initial recipes:', err)
-        }
-      }
-
-      setCustomRecipes(recipesData)
-      setDataLoaded(prev => ({ ...prev, recipes: true }))
+      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'recipes', field: 'recipes', seedUrl: '/initial-recipes.json' })
+      loadedValues.current.recipes = items
+      setCustomRecipes(items)
+      markLoaded('recipes', true)
     } catch (error) {
       console.error('Failed to load recipes:', error)
-      setDataLoaded(prev => ({ ...prev, recipes: true }))
+      markLoaded('recipes', false)
     }
   }
 
   const loadShopping = async () => {
     try {
-      console.log('[Shopping] Loading shopping list from backend...')
-      const response = await fetch(`${WORKER_URL}/shopping`)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      const data = await response.json()
-      const loadedList = data.shopping || []
-      console.log(`[Shopping] Loaded ${loadedList.length} items:`, loadedList)
-      setShoppingList(loadedList)
-      setDataLoaded(prev => ({ ...prev, shopping: true }))
+      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'shopping', field: 'shopping' })
+      loadedValues.current.shopping = items
+      setShoppingList(items)
+      markLoaded('shopping', true)
     } catch (error) {
       console.error('[Shopping] Failed to load shopping list:', error)
-      // Don't overwrite with empty array on error - keep what we have
-      setDataLoaded(prev => ({ ...prev, shopping: true }))
+      markLoaded('shopping', false)
     }
   }
 
   const loadChatHistory = async () => {
     try {
-      const response = await fetch(`${WORKER_URL}/chat-history`)
-      const data = await response.json()
-      setMessages(data.chatHistory || [])
+      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'chat-history', field: 'chatHistory' })
+      loadedValues.current.chat = items
+      setMessages(items)
+      markLoaded('chat', true)
     } catch (error) {
       console.error('Failed to load chat history:', error)
+      markLoaded('chat', false)
     }
+  }
+
+  const retryFailedLoads = () => {
+    if (loadErrors.inventory) loadInventory()
+    if (loadErrors.recipes) loadRecipes()
+    if (loadErrors.shopping) loadShopping()
+    if (loadErrors.chat) loadChatHistory()
   }
 
   // Save functions
@@ -1521,16 +1522,16 @@ function App() {
     }
   }
 
-  // Save recipes to backend (only after initial load completes)
+  // Save recipes to backend (only after a successful load, and only real changes)
   useEffect(() => {
-    if (dataLoaded.recipes && customRecipes.length > 0) {
+    if (dataLoaded.recipes && customRecipes !== loadedValues.current.recipes && customRecipes.length > 0) {
       saveRecipes(customRecipes)
     }
   }, [customRecipes, dataLoaded.recipes])
 
-  // Save shopping list to backend (only after initial load completes to prevent race condition)
+  // Save shopping list to backend (only after a successful load, and only real changes)
   useEffect(() => {
-    if (dataLoaded.shopping) {
+    if (dataLoaded.shopping && shoppingList !== loadedValues.current.shopping) {
       saveShopping(shoppingList)
     }
   }, [shoppingList, dataLoaded.shopping])
@@ -1586,10 +1587,13 @@ function App() {
     }
   }, [inventory, shoppingList, dataLoaded.shopping])
 
-  // Save chat messages to backend
+  // Save chat messages to backend (never before history has loaded, or an empty
+  // startup state would overwrite the stored conversation)
   useEffect(() => {
-    saveChatHistory(messages)
-  }, [messages])
+    if (dataLoaded.chat && messages !== loadedValues.current.chat) {
+      saveChatHistory(messages)
+    }
+  }, [messages, dataLoaded.chat])
 
   // Mobile responsive resize handler
   useEffect(() => {
@@ -1614,31 +1618,12 @@ function App() {
 
   const loadInventory = async () => {
     try {
-      const response = await fetch(`${WORKER_URL}/inventory`)
-      const data = await response.json()
-      let inventoryData = data.inventory || []
-
-      // If inventory is empty, load initial inventory from CSV
-      if (inventoryData.length === 0) {
-        try {
-          const initialResponse = await fetch('/initial-inventory.json')
-          const initialData = await initialResponse.json()
-          inventoryData = initialData
-          // Save the initial inventory to the backend
-          await fetch(`${WORKER_URL}/inventory`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ inventory: initialData })
-          })
-        } catch (err) {
-          console.error('Failed to load initial inventory:', err)
-        }
-      }
-
-      const normalizedInventory = ensureInventoryShape(inventoryData)
-      setInventory(normalizedInventory)
+      const { items } = await loadList(fetch, { base: WORKER_URL, path: 'inventory', field: 'inventory', seedUrl: '/initial-inventory.json' })
+      setInventory(ensureInventoryShape(items))
+      markLoaded('inventory', true)
     } catch (error) {
       console.error('Failed to load inventory:', error)
+      markLoaded('inventory', false)
     }
   }
 
@@ -2369,6 +2354,31 @@ function App() {
           }}
         >
           <strong>Tom Bullock (1872–1964)</strong> was the first African American to publish a cocktail book. A legendary bartender, his work preserved pre-Prohibition recipes and techniques.
+        </div>
+      )}
+
+      {Object.keys(loadErrors).length > 0 && (
+        <div
+          role="alert"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '12px',
+            padding: '10px 16px',
+            background: '#fef2f2',
+            color: '#991b1b',
+            borderBottom: '1px solid #fecaca',
+            fontSize: '14px'
+          }}
+        >
+          <span>Couldn't load your {Object.keys(loadErrors).map(k => (k === 'chat' ? 'chat history' : k === 'recipes' ? 'favorites' : k)).join(', ')}. Nothing was changed.</span>
+          <button
+            onClick={retryFailedLoads}
+            style={{ minHeight: '44px', padding: '8px 16px', background: '#991b1b', color: 'white', border: 'none', borderRadius: '8px', fontSize: '14px', fontWeight: 600, cursor: 'pointer' }}
+          >
+            Retry
+          </button>
         </div>
       )}
 
