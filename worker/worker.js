@@ -1,4 +1,5 @@
 ﻿// Cloudflare Worker - Handles AI requests and inventory management
+import { parseInventoryUpdate, applyInventoryUpdates, describeUpdate } from './inventoryUpdate.js';
 // Frontend (bartender.tawiah.net) is protected by Cloudflare Access
 // Worker endpoints trust authenticated requests from the protected frontend
 
@@ -889,45 +890,29 @@ KEY POINTS:
           );
         }
 
-        // Check if AI is indicating inventory should be updated
+        // Apply an [INVENTORY_UPDATE] block if the AI emitted one. Changes are applied
+        // to the *stored* inventory (not the possibly stale copy the phone sent), the
+        // block is removed from the reply, and a factual summary is appended.
         let updatedInventory = null;
-        const updateMarker = '[INVENTORY_UPDATE]';
-
-        if (aiResponse.includes(updateMarker)) {
-          try {
-            // Extract the inventory update JSON
-            const markerIndex = aiResponse.indexOf(updateMarker);
-            const jsonStart = markerIndex + updateMarker.length;
-            const jsonEnd = aiResponse.indexOf('}', jsonStart) + 1;
-            const updateJson = aiResponse.substring(jsonStart, jsonEnd);
-            const updateData = JSON.parse(updateJson);
-
-            // Remove the marker and JSON from the user-facing response
-            aiResponse = aiResponse.substring(0, markerIndex) + aiResponse.substring(jsonEnd);
-
-            // Apply updates to inventory
-            updatedInventory = inventory.map(item => {
-              const update = updateData.updates.find(u =>
-                item.name.toLowerCase().includes(u.name.toLowerCase()) ||
-                u.name.toLowerCase().includes(item.name.toLowerCase())
-              );
-
-              if (update && update.subtract) {
-                const currentAmount = parseFloat(item.amountRemaining) || 0;
-                const newAmount = Math.max(0, currentAmount - update.subtract);
-                return { ...item, amountRemaining: String(newAmount) };
+        const parsedUpdate = parseInventoryUpdate(aiResponse);
+        if (parsedUpdate.found) {
+          aiResponse = parsedUpdate.text;
+          if (parsedUpdate.updates === null) {
+            aiResponse += `\n\n${describeUpdate({ applied: [], unmatched: [] }, true)}`;
+          } else if (parsedUpdate.updates.length > 0) {
+            try {
+              const stored = await env.BARTENDER_KV.get('inventory', { type: 'json' });
+              const base = Array.isArray(stored) ? stored : (Array.isArray(inventory) ? inventory : []);
+              const result = applyInventoryUpdates(base, parsedUpdate.updates);
+              if (result.applied.length > 0) {
+                await env.BARTENDER_KV.put('inventory', JSON.stringify(result.inventory));
+                updatedInventory = result.inventory;
               }
-
-              return item;
-            });
-
-            // Save updated inventory to KV
-            if (updatedInventory) {
-              await env.BARTENDER_KV.put('inventory', JSON.stringify(updatedInventory));
+              aiResponse += `\n\n${describeUpdate(result)}`;
+            } catch (error) {
+              console.error('Error applying inventory update:', error);
+              aiResponse += `\n\n${describeUpdate({ applied: [], unmatched: [] }, true)}`;
             }
-          } catch (error) {
-            console.error('Error parsing inventory update:', error);
-            // If parsing fails, just continue without updating
           }
         }
 
