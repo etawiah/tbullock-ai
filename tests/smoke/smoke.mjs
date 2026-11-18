@@ -207,6 +207,8 @@ await scenario('delete-favorite', async expect => {
   await tab(page, 'Favorites').click(); await settle(page)
   await page.getByRole('button', { name: 'Delete' }).first().click(); await settle(page, 1200)
   expect('deleting the last favorite is saved', (currentKV.json('recipes') || []).length === 0)
+  await page.reload(); await page.waitForTimeout(1200)
+  expect('emptied favorites stay empty after reload (no demo re-seed)', (currentKV.json('recipes') || []).length === 0)
   expect('no page errors', errors.length === 0, errors.join('; '))
   await ctx.close()
 })

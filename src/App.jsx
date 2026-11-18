@@ -1535,7 +1535,7 @@ function App() {
 
   // Save recipes to backend (only after a successful load, and only real changes)
   useEffect(() => {
-    if (dataLoaded.recipes && customRecipes !== loadedValues.current.recipes && customRecipes.length > 0) {
+    if (dataLoaded.recipes && customRecipes !== loadedValues.current.recipes) {
       saveRecipes(customRecipes)
     }
   }, [customRecipes, dataLoaded.recipes])
@@ -1960,15 +1960,9 @@ function App() {
 
   const deleteRecipe = (recipeId) => {
     // Remove from recipes
-    const updatedRecipes = customRecipes.filter(r => r.id !== recipeId)
-    setCustomRecipes(updatedRecipes)
-
-    // Also remove from menu if it exists there (cascade delete)
-    // This prevents orphaned menu items when a recipe is deleted
-    if (menu.some(item => item.favoriteId === recipeId)) {
-      const updatedMenu = menu.filter(item => item.favoriteId !== recipeId)
-      setMenu(updatedMenu)
-    }
+    setCustomRecipes(prev => prev.filter(r => r.id !== recipeId))
+    // Menu items that pointed at this recipe are hidden by the Worker
+    // (orphaned favoriteId filter on /api/menu and /api/menu/admin).
   }
 
   // Subtract the poured amounts and save immediately (no AI call on this path).

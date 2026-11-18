@@ -56,3 +56,12 @@ test('network failure is an ApiError with status 0', async () => {
   const fetchFn = async () => { throw new TypeError('Failed to fetch') }
   await assert.rejects(requestJson(fetchFn, '/api/x'), e => e instanceof ApiError && e.status === 0)
 })
+
+test('a list the user deliberately emptied is not re-seeded with demo data', async () => {
+  const env = { BARTENDER_KV: makeKV({ inventory: [] }) }
+  const fetchFn = makeFetch(env, seed)
+  const result = await loadList(fetchFn, opts)
+  assert.deepEqual(result.items, [])
+  assert.equal(result.seeded, false)
+  assert.deepEqual(env.BARTENDER_KV.json('inventory'), [])
+})

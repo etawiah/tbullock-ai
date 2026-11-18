@@ -47,7 +47,9 @@ export async function loadList(fetchFn, { base, path, field, seedUrl }) {
     throw new ApiError(`Unexpected ${path} response`, 200, data)
   }
   const rev = Number.isInteger(data.rev) ? data.rev : null
-  if (items.length > 0 || !seedUrl) {
+  // Seed only on first run: the list is empty AND the server says it was never
+  // saved. A list the user emptied on purpose (stored: true) stays empty.
+  if (items.length > 0 || !seedUrl || data.stored === true) {
     return { items, rev, seeded: false }
   }
   let seed

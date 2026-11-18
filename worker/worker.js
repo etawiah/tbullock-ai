@@ -199,8 +199,10 @@ export default {
     try {
       // Route: Get inventory
       if (url.pathname === '/api/inventory' && request.method === 'GET') {
-        const inventory = await env.BARTENDER_KV.get('inventory', { type: 'json' }) || [];
-        return new Response(JSON.stringify({ inventory }), {
+        const storedInventory = await env.BARTENDER_KV.get('inventory', { type: 'json' });
+        const inventory = Array.isArray(storedInventory) ? storedInventory : [];
+        // stored=false means "never saved" (first run), so the app may seed starter data.
+        return new Response(JSON.stringify({ inventory, stored: storedInventory !== null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -411,8 +413,10 @@ export default {
 
       // Route: Get custom recipes
       if (url.pathname === '/api/recipes' && request.method === 'GET') {
-        const recipes = await env.BARTENDER_KV.get('recipes', { type: 'json' }) || [];
-        return new Response(JSON.stringify({ recipes }), {
+        const storedRecipes = await env.BARTENDER_KV.get('recipes', { type: 'json' });
+        const recipes = Array.isArray(storedRecipes) ? storedRecipes : [];
+        // stored=false means "never saved" (first run), so the app may seed starter data.
+        return new Response(JSON.stringify({ recipes, stored: storedRecipes !== null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -428,8 +432,10 @@ export default {
 
       // Route: Get shopping list
       if (url.pathname === '/api/shopping' && request.method === 'GET') {
-        const shopping = await env.BARTENDER_KV.get('shopping', { type: 'json' }) || [];
-        return new Response(JSON.stringify({ shopping }), {
+        const storedShopping = await env.BARTENDER_KV.get('shopping', { type: 'json' });
+        const shopping = Array.isArray(storedShopping) ? storedShopping : [];
+        // stored=false means "never saved" (first run), so the app may seed starter data.
+        return new Response(JSON.stringify({ shopping, stored: storedShopping !== null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -445,8 +451,10 @@ export default {
 
       // Route: Get favorites
       if (url.pathname === '/api/favorites' && request.method === 'GET') {
-        const favorites = await env.BARTENDER_KV.get('favorites', { type: 'json' }) || [];
-        return new Response(JSON.stringify({ favorites }), {
+        const storedFavorites = await env.BARTENDER_KV.get('favorites', { type: 'json' });
+        const favorites = Array.isArray(storedFavorites) ? storedFavorites : [];
+        // stored=false means "never saved" (first run), so the app may seed starter data.
+        return new Response(JSON.stringify({ favorites, stored: storedFavorites !== null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -462,8 +470,10 @@ export default {
 
       // Route: Get chat history
       if (url.pathname === '/api/chat-history' && request.method === 'GET') {
-        const chatHistory = await env.BARTENDER_KV.get('chatHistory', { type: 'json' }) || [];
-        return new Response(JSON.stringify({ chatHistory }), {
+        const storedChatHistory = await env.BARTENDER_KV.get('chatHistory', { type: 'json' });
+        const chatHistory = Array.isArray(storedChatHistory) ? storedChatHistory : [];
+        // stored=false means "never saved" (first run), so the app may seed starter data.
+        return new Response(JSON.stringify({ chatHistory, stored: storedChatHistory !== null }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
