@@ -723,7 +723,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
 
 // Recipe Card Component with Flexible Ingredient Matching
 // #22: Memoized to prevent unnecessary re-renders
-const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList }) {
+const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList, isMobile }) {
   const [expanded, setExpanded] = useState(false)
   const [showBottleSelection, setShowBottleSelection] = useState(false)
   const [selectedBottles, setSelectedBottles] = useState(recipe?.selectedBottles || {})
@@ -3934,6 +3934,7 @@ function App() {
                       onDelete={deleteRecipe}
                       onMake={makeRecipe}
                       onAddToShoppingList={addToShoppingList}
+                      isMobile={isMobile}
                     />
                   ))
                 )}
