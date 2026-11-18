@@ -43,9 +43,9 @@ const ProgressBar = memo(function ProgressBar({ current, total }) {
   const percentage = total > 0 ? Math.min(100, (current / total) * 100) : 0
 
   // Color coding: green (>50%), yellow (25-50%), red (<25%)
-  let barColor = '#10b981' // green
-  if (percentage < 25) barColor = '#ef4444' // red
-  else if (percentage < 50) barColor = '#f59e0b' // yellow
+  let barColor = '#047857' // green
+  if (percentage < 25) barColor = '#dc2626' // red
+  else if (percentage < 50) barColor = '#b45309' // yellow
 
   return (
     <div style={{
@@ -85,13 +85,13 @@ const getStockLevel = (current, total) => {
 
   // Low: Less than 25% full
   const percentage = totalMl > 0 ? (currentMl / totalMl) * 100 : 0
-  if (percentage < 25) return { level: 'low', label: '🟡 Low Stock', color: '#f59e0b' }
+  if (percentage < 25) return { level: 'low', label: '🟡 Low Stock', color: '#b45309' }
 
   // Medium: Less than 50% full
-  if (percentage < 50) return { level: 'medium', label: '🟢 Medium', color: '#10b981' }
+  if (percentage < 50) return { level: 'medium', label: '🟢 Medium', color: '#047857' }
 
   // Good: 50%+ full
-  return { level: 'good', label: '🟢 Good', color: '#10b981' }
+  return { level: 'good', label: '🟢 Good', color: '#047857' }
 }
 
 const SPIRIT_TYPES = [
@@ -172,7 +172,7 @@ const countItemsMissingFlavorNotes = (items = []) =>
 const PurpleMoonIcon = ({ size = 24, style = {} }) => (
   <img
     src="/purple-moon-logo-128.png"
-    alt="Purple moon"
+    alt=""
     width={size}
     height={size}
     loading="lazy"
@@ -348,7 +348,7 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
               </div>
               <button
                 onClick={() => removeIngredient(idx)}
-                style={{ padding: '8px 12px', minHeight: '38px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}
+                style={{ padding: '8px 12px', minHeight: '38px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '16px', flexShrink: 0 }}
                 aria-label="Remove ingredient"
               >
                 ✕
@@ -362,7 +362,7 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
             width: '100%',
             padding: '12px 16px',
             minHeight: '44px',
-            background: '#10b981',
+            background: '#047857',
             color: 'white',
             border: 'none',
             borderRadius: '6px',
@@ -455,7 +455,7 @@ const RecipeBuilder = memo(function RecipeBuilder({ recipe, inventory, onSave, o
       <div style={{ display: 'flex', gap: '8px' }}>
         <button
           onClick={handleSave}
-          style={{ flex: 1, padding: '12px', minHeight: '44px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}
+          style={{ flex: 1, padding: '12px', minHeight: '44px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontSize: '14px', fontWeight: '600' }}
         >
           {recipe ? 'Update Recipe' : 'Save Recipe'}
         </button>
@@ -657,7 +657,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
           <div>
             <label style={{ display: 'block', marginBottom: '6px', fontSize: '14px', fontWeight: '600' }}>
               Flavor Notes
-              {isGenerating && <span style={{ marginLeft: '8px', fontSize: '12px', color: '#667eea' }}>(AI generating...)</span>}
+              {isGenerating && <span style={{ marginLeft: '8px', fontSize: '12px', color: '#5a67d8' }}>(AI generating...)</span>}
             </label>
             <textarea
               value={item.flavorNotes}
@@ -680,7 +680,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
               minWidth: '140px',
               minHeight: '44px',
               padding: isMobile ? '12px' : '10px',
-              background: item.name.trim() ? '#667eea' : '#d1d5db',
+              background: item.name.trim() ? '#5a67d8' : '#d1d5db',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -699,7 +699,7 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
               minWidth: '100px',
               minHeight: '44px',
               padding: isMobile ? '12px' : '10px',
-              background: item.name.trim() ? '#10b981' : '#d1d5db',
+              background: item.name.trim() ? '#047857' : '#d1d5db',
               color: 'white',
               border: 'none',
               borderRadius: '8px',
@@ -1065,8 +1065,8 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
           )}
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
-          <button onClick={() => onEdit(recipe)} style={{ padding: '8px 12px', minHeight: '44px', minWidth: '44px', fontSize: '13px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
-          <button onClick={() => { if (confirm(`Delete ${recipe.name}?`)) onDelete(recipe.id) }} style={{ padding: '8px 12px', minHeight: '44px', minWidth: '44px', fontSize: '13px', background: '#ef4444', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
+          <button onClick={() => onEdit(recipe)} style={{ padding: '8px 12px', minHeight: '44px', minWidth: '44px', fontSize: '13px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Edit</button>
+          <button onClick={() => { if (confirm(`Delete ${recipe.name}?`)) onDelete(recipe.id) }} style={{ padding: '8px 12px', minHeight: '44px', minWidth: '44px', fontSize: '13px', background: '#dc2626', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Delete</button>
         </div>
       </div>
 
@@ -1074,7 +1074,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
         <strong style={{ fontSize: '14px' }}>Ingredients:</strong>
         <ul style={{ margin: '8px 0', paddingLeft: '20px', fontSize: '14px', lineHeight: '1.6' }}>
           {ingredientStatus.map((ing, idx) => (
-            <li key={idx} style={{ color: ing.available ? '#059669' : '#dc2626' }}>
+            <li key={idx} style={{ color: ing.available ? '#047857' : '#b91c1c' }}>
               <span style={{ fontWeight: '600' }}>{ing.name}</span>: {ing.amount} {ing.unit}
               {ing.available ? (
                 <>
@@ -1123,9 +1123,10 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
           style={{
             flex: 1,
             minWidth: '120px',
+            minHeight: '44px',
             padding: '8px',
-            background: canMake ? '#10b981' : '#d1d5db',
-            color: 'white',
+            background: canMake ? '#047857' : '#e5e7eb',
+            color: canMake ? 'white' : '#4b5563',
             border: 'none',
             borderRadius: '6px',
             cursor: canMake ? 'pointer' : 'not-allowed',
@@ -1141,8 +1142,9 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
             style={{
               flex: 1,
               minWidth: '120px',
+              minHeight: '44px',
               padding: '8px',
-              background: '#f59e0b',
+              background: '#b45309',
               color: 'white',
               border: 'none',
               borderRadius: '6px',
@@ -1293,7 +1295,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
                   flex: 1,
                   padding: '12px',
                   minHeight: '44px',
-                  background: '#10b981',
+                  background: '#047857',
                   color: 'white',
                   border: 'none',
                   borderRadius: '8px',
@@ -2131,7 +2133,7 @@ function App() {
       {!isMobile && (
         <div style={{
           padding: '16px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #5a67d8 0%, #764ba2 100%)',
           color: 'white'
         }}>
           {/* Purple Moonz Branding */}
@@ -2176,6 +2178,7 @@ function App() {
                   minWidth: '44px'
                 }}
                 title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
               >
                 {darkMode ? '☀️' : <PurpleMoonIcon size={20} />}
               </button>
@@ -2305,7 +2308,7 @@ function App() {
       {isMobile && (
         <div style={{
           padding: '12px 16px',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+          background: 'linear-gradient(135deg, #5a67d8 0%, #764ba2 100%)',
           color: 'white',
           display: 'flex',
           justifyContent: 'space-between',
@@ -2338,6 +2341,8 @@ function App() {
                 minWidth: '44px'
               }}
               title="About Tom Bullock"
+              aria-label="About Tom Bullock"
+              aria-expanded={showTomInfo}
             >
               ℹ️
             </button>
@@ -2359,6 +2364,7 @@ function App() {
                 minWidth: '44px'
               }}
               title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+              aria-label={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
@@ -2371,7 +2377,7 @@ function App() {
           id="tom-bullock-info"
           style={{
             padding: '12px 16px',
-            background: '#667eea',
+            background: '#5a67d8',
             color: 'white',
             fontSize: '12px',
             lineHeight: 1.5,
@@ -2441,12 +2447,13 @@ function App() {
                 }}
                 style={{
                   padding: '8px 16px',
-                  background: '#ef4444',
+                  background: '#dc2626',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
-                  fontSize: isMobile ? '12px' : '14px',
+                  fontSize: '14px',
+                  minHeight: '44px',
                   marginBottom: '16px'
                 }}
               >
@@ -2485,7 +2492,7 @@ function App() {
                     maxWidth: '80%',
                     padding: '12px 16px',
                     borderRadius: '16px',
-                    background: msg.role === 'user' ? '#667eea' : 'white',
+                    background: msg.role === 'user' ? '#5a67d8' : 'white',
                     color: msg.role === 'user' ? 'white' : '#333',
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                     whiteSpace: 'pre-wrap',
@@ -2505,7 +2512,7 @@ function App() {
                   background: 'white',
                   boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                 }}>
-                  <span style={{ color: '#667eea' }}>Mixing up a response...</span>
+                  <span style={{ color: '#5a67d8' }}>Mixing up a response...</span>
                 </div>
               </div>
             )}
@@ -2535,6 +2542,7 @@ function App() {
                 onChange={(e) => setInput(e.target.value)}
                 onKeyPress={handleKeyPress}
                 placeholder="Ask for a drink or inventory help..."
+                aria-label="Message the bartender"
                 disabled={loading}
                 style={{
                   flex: 1,
@@ -2549,7 +2557,7 @@ function App() {
                 onClick={sendMessage}
                 disabled={loading || !input.trim()}
                 style={{
-                  background: loading || !input.trim() ? '#ccc' : 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  background: loading || !input.trim() ? '#ccc' : 'linear-gradient(135deg, #5a67d8 0%, #764ba2 100%)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '24px',
@@ -2651,15 +2659,15 @@ function App() {
                       setMaintenanceMenuOpen(!maintenanceMenuOpen)
                     }}
                     style={{
-                      background: maintenanceMenuOpen ? '#6b7280' : '#8b5cf6',
+                      background: maintenanceMenuOpen ? '#6b7280' : '#7c3aed',
                       color: 'white',
                       border: 'none',
                       padding: '8px 12px',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '18px',
-                      minHeight: '40px',
-                      minWidth: '40px',
+                      minHeight: '44px',
+                      minWidth: '44px',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center'
@@ -2909,14 +2917,14 @@ function App() {
                       setNoteStatus('')
                     }}
                     style={{
-                      background: '#667eea',
+                      background: '#5a67d8',
                       color: 'white',
                       border: 'none',
                       padding: '8px 16px',
                       borderRadius: '8px',
                       cursor: 'pointer',
                       fontSize: '14px',
-                      minHeight: '40px',
+                      minHeight: '44px',
                       fontWeight: '600'
                     }}
                   >
@@ -2929,7 +2937,7 @@ function App() {
                     <button
                       onClick={openAddItemModal}
                       style={{
-                        background: '#10b981',
+                        background: '#047857',
                         color: 'white',
                         border: 'none',
                         padding: '8px 16px',
@@ -2944,7 +2952,7 @@ function App() {
                     <button
                       onClick={() => setBulkSelectMode(!bulkSelectMode)}
                       style={{
-                        background: bulkSelectMode ? '#ef4444' : '#6b7280',
+                        background: bulkSelectMode ? '#dc2626' : '#6b7280',
                         color: 'white',
                         border: 'none',
                         padding: '8px 16px',
@@ -2975,7 +2983,7 @@ function App() {
                           onClick={bulkDelete}
                           disabled={selectedItems.size === 0}
                           style={{
-                            background: selectedItems.size === 0 ? '#d1d5db' : '#ef4444',
+                            background: selectedItems.size === 0 ? '#d1d5db' : '#dc2626',
                             color: 'white',
                             border: 'none',
                             padding: '8px 16px',
@@ -2992,7 +3000,7 @@ function App() {
                       onClick={() => saveInventory(inventory)}
                       disabled={savingInventory}
                       style={{
-                        background: savingInventory ? '#6ee7b7' : '#10b981',
+                        background: savingInventory ? '#6ee7b7' : '#047857',
                         color: 'white',
                         border: 'none',
                         padding: '8px 16px',
@@ -3013,7 +3021,7 @@ function App() {
                         setSelectedItems(new Set())
                       }}
                       style={{
-                        background: '#ef4444',
+                        background: '#dc2626',
                         color: 'white',
                         border: 'none',
                         padding: '8px 16px',
@@ -3045,7 +3053,9 @@ function App() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search by name, type, or flavor notes..."
+                aria-label="Search inventory"
                 style={{
+                  minHeight: '44px',
                   width: '100%',
                   padding: '12px 16px',
                   borderRadius: '8px',
@@ -3094,7 +3104,7 @@ function App() {
                         padding: isMobile ? '12px 16px' : '8px 12px',
                         minHeight: '44px',
                         minWidth: '44px',
-                        background: '#ef4444',
+                        background: '#dc2626',
                         color: 'white',
                         border: 'none',
                         borderRadius: '4px',
@@ -3135,7 +3145,7 @@ function App() {
                 <button
                   onClick={addInventoryItem}
                   style={{
-                    background: '#667eea',
+                    background: '#5a67d8',
                     color: 'white',
                     border: 'none',
                     padding: '10px 20px',
@@ -3160,7 +3170,7 @@ function App() {
                         <div style={{ marginBottom: '16px' }}>
                           <div style={{
                             padding: '12px 16px',
-                            background: '#f59e0b',
+                            background: '#b45309',
                             color: 'white',
                             borderRadius: '8px',
                             marginBottom: '8px'
@@ -3348,7 +3358,7 @@ function App() {
                             <button
                               onClick={() => removeInventoryItem(idx)}
                               style={{
-                                background: '#ef4444',
+                                background: '#dc2626',
                                 color: 'white',
                                 border: 'none',
                                 padding: '8px 12px',
@@ -3433,7 +3443,7 @@ function App() {
                                     minHeight: isMobile && window.innerWidth < 360 ? '44px' : '44px',
                                     flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
                                     width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
-                                    background: '#3b82f6',
+                                    background: '#2563eb',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '4px',
@@ -3452,7 +3462,7 @@ function App() {
                                     minHeight: isMobile && window.innerWidth < 360 ? '44px' : '44px',
                                     flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
                                     width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
-                                    background: '#3b82f6',
+                                    background: '#2563eb',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '4px',
@@ -3471,7 +3481,7 @@ function App() {
                                     minHeight: isMobile && window.innerWidth < 360 ? '44px' : '44px',
                                     flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
                                     width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
-                                    background: '#3b82f6',
+                                    background: '#2563eb',
                                     color: 'white',
                                     border: 'none',
                                     borderRadius: '4px',
@@ -3495,7 +3505,7 @@ function App() {
                                       fontSize: isMobile ? '12px' : '13px',
                                       padding: isMobile ? '12px 16px' : '8px 12px',
                                       minHeight: '44px',
-                                      background: '#10b981',
+                                      background: '#047857',
                                       color: 'white',
                                       border: 'none',
                                       borderRadius: '4px',
@@ -3533,7 +3543,7 @@ function App() {
                                 justifyContent: 'space-between',
                                 alignItems: 'center',
                                 padding: '12px 16px',
-                                background: '#667eea',
+                                background: '#5a67d8',
                                 color: 'white',
                                 borderRadius: '8px',
                                 cursor: 'pointer',
@@ -3593,7 +3603,7 @@ function App() {
                                         }
                                         setSelectedItems(newSelected)
                                       }}
-                                      style={{ width: '28px', height: '28px', cursor: 'pointer', accentColor: '#667eea' }}
+                                      style={{ width: '28px', height: '28px', cursor: 'pointer', accentColor: '#5a67d8' }}
                                     />
                                     <span style={{ fontSize: '14px', fontWeight: '600' }}>Select this item</span>
                                   </div>
@@ -3723,7 +3733,7 @@ function App() {
                                   <button
                                     onClick={() => removeInventoryItem(idx)}
                                     style={{
-                                      background: '#ef4444',
+                                      background: '#dc2626',
                                       color: 'white',
                                       border: 'none',
                                       padding: '8px 12px',
@@ -3808,7 +3818,7 @@ function App() {
                                           minHeight: '44px',
                                           flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
                                           width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
-                                          background: '#3b82f6',
+                                          background: '#2563eb',
                                           color: 'white',
                                           border: 'none',
                                           borderRadius: '4px',
@@ -3827,7 +3837,7 @@ function App() {
                                           minHeight: '44px',
                                           flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
                                           width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
-                                          background: '#3b82f6',
+                                          background: '#2563eb',
                                           color: 'white',
                                           border: 'none',
                                           borderRadius: '4px',
@@ -3846,7 +3856,7 @@ function App() {
                                           minHeight: '44px',
                                           flex: isMobile && window.innerWidth < 360 ? '1' : 'initial',
                                           width: isMobile && window.innerWidth < 360 ? '100%' : 'auto',
-                                          background: '#3b82f6',
+                                          background: '#2563eb',
                                           color: 'white',
                                           border: 'none',
                                           borderRadius: '4px',
@@ -3870,7 +3880,7 @@ function App() {
                                             fontSize: isMobile ? '12px' : '13px',
                                             padding: isMobile ? '12px 16px' : '8px 12px',
                                             minHeight: '44px',
-                                            background: '#10b981',
+                                            background: '#047857',
                                             color: 'white',
                                             border: 'none',
                                             borderRadius: '4px',
@@ -3903,7 +3913,7 @@ function App() {
                     style={{
                       width: '100%',
                       background: '#f3f4f6',
-                      color: '#667eea',
+                      color: '#5a67d8',
                       border: '2px dashed #d1d5db',
                       padding: '12px',
                       borderRadius: '8px',
@@ -3950,7 +3960,7 @@ function App() {
                 <button
                   onClick={() => setCreatingRecipe(true)}
                   style={{
-                    background: '#667eea',
+                    background: '#5a67d8',
                     color: 'white',
                     border: 'none',
                     padding: '8px 16px',
@@ -4017,7 +4027,7 @@ function App() {
             width: '56px',
             height: '56px',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'linear-gradient(135deg, #5a67d8 0%, #764ba2 100%)',
             color: 'white',
             border: 'none',
             fontSize: '24px',
@@ -4075,7 +4085,7 @@ function App() {
               }}
               style={{
                 padding: '12px 20px',
-                background: '#10b981',
+                background: '#047857',
                 color: 'white',
                 border: 'none',
                 borderRadius: '24px',
@@ -4099,7 +4109,7 @@ function App() {
               }}
               style={{
                 padding: '12px 20px',
-                background: '#3b82f6',
+                background: '#2563eb',
                 color: 'white',
                 border: 'none',
                 borderRadius: '24px',
@@ -4124,7 +4134,7 @@ function App() {
                 width: '56px',
                 height: '56px',
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                background: 'linear-gradient(135deg, #5a67d8 0%, #764ba2 100%)',
                 color: 'white',
                 border: 'none',
                 fontSize: '24px',

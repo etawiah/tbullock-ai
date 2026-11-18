@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="Tom Bullock - Your Home AI personal mixologist with inventory management and classic cocktail recipes" />
     <meta name="theme-color" content="#667eea" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1e1b4b" />
@@ -51,10 +51,24 @@
         font-size: 16px;
       }
 
+      /* iOS zooms into any field under 16px when you tap it. Pinch-zoom is
+         allowed again (for accessibility), so keep phone fields at 16px. */
+      @media (max-width: 767px) {
+        input, select, textarea {
+          font-size: 16px !important;
+        }
+      }
+
       @media (min-width: 768px) {
         input, select, textarea, button {
           font-size: 14px;
         }
+      }
+
+      /* Visible keyboard focus */
+      button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, a:focus-visible {
+        outline: 3px solid #f59e0b;
+        outline-offset: 2px;
       }
 
       /* #7: Dark mode theming */
@@ -104,7 +118,10 @@
       body.dark-mode [style*="color: rgb(153, 153, 153)"] { color: #b3b6c9 !important; }
       body.dark-mode [style*="color: rgb(153, 27, 27)"],
       body.dark-mode [style*="color: rgb(220, 38, 38)"] { color: #fca5a5 !important; }
-      body.dark-mode [style*="color: rgb(5, 150, 105)"] { color: #6ee7b7 !important; }
+      body.dark-mode [style*="color: rgb(5, 150, 105)"],
+      body.dark-mode [style*="color: rgb(4, 120, 87)"] { color: #6ee7b7 !important; }
+      body.dark-mode [style*="color: rgb(185, 28, 28)"] { color: #fca5a5 !important; }
+      body.dark-mode [style*="color: rgb(67, 56, 202)"] { color: #a5b4fc !important; }
       body.dark-mode [style*="border: 1px solid rgb(229, 231, 235)"],
       body.dark-mode [style*="border: 1px solid rgb(209, 213, 219)"],
       body.dark-mode [style*="border-top: 1px solid rgb(229, 231, 235)"],

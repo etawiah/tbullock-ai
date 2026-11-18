@@ -350,6 +350,28 @@ await scenario('dark', async expect => {
   await ctx.close()
 })
 
+await scenario('a11y', async expect => {
+  const { ctx, page } = await newPage()
+  const viewport = await page.locator('meta[name="viewport"]').getAttribute('content')
+  expect('pinch-zoom allowed', !/user-scalable=no|maximum-scale=1/.test(viewport), viewport)
+  expect('tabs have readable names', await page.getByRole('button', { name: /^Inventory, \d+ items$/ }).count() === 1)
+  const axeSrc = process.env.AXE_PATH ? fs.readFileSync(process.env.AXE_PATH, 'utf8') : null
+  for (const view of ['Chat', 'Inventory', 'Favorites']) {
+    await tab(page, view).click(); await settle(page, 600)
+    if (view === 'Inventory') { await page.getByText('Vodka', { exact: true }).first().click(); await settle(page, 300) }
+    const small = await page.evaluate(() => [...document.querySelectorAll('button, a, input, select')]
+      .filter(el => { const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && r.height < 44 })
+      .map(el => `${(el.innerText || el.getAttribute('aria-label') || el.tagName).trim().slice(0, 24)} ${Math.round(el.getBoundingClientRect().height)}px`))
+    expect(`${view}: tap targets at least 44px tall`, small.length === 0, small.slice(0, 6).join(', '))
+    if (axeSrc) {
+      await page.evaluate(axeSrc)
+      const violations = await page.evaluate(async () => (await window.axe.run(document, { runOnly: ['wcag2a', 'wcag2aa'] })).violations.map(v => `${v.id}(${v.nodes.length}): ` + v.nodes.slice(0, 3).map(n => (n.any[0]?.data ? `${n.any[0].data.fgColor} on ${n.any[0].data.bgColor} ${n.any[0].data.contrastRatio}` : '') + ' ' + n.html.slice(0, 60)).join(' | ')))
+      expect(`${view}: no axe WCAG A/AA violations`, violations.length === 0, violations.join(', '))
+    }
+  }
+  await ctx.close()
+})
+
 await scenario('offline', async expect => {
   const { ctx, page } = await newPage()
   await page.context().setOffline(true)
