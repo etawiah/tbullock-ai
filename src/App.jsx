@@ -171,7 +171,7 @@ const countItemsMissingFlavorNotes = (items = []) =>
 
 const PurpleMoonIcon = ({ size = 24, style = {} }) => (
   <img
-    src="/purple-moon-logo.png"
+    src="/purple-moon-logo-128.png"
     alt="Purple moon"
     width={size}
     height={size}
