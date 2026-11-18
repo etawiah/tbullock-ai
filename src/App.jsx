@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, memo } from 'react'
 import MenuEditor from './components/MenuEditor'
 import BottomTabBar from './components/BottomTabBar'
+import { API_BASE } from './lib/config'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -1408,7 +1409,7 @@ function App() {
     fontSize: '14px'
   }
 
-  const WORKER_URL = 'https://bartender-api.eugene-tawiah.workers.dev/api' // Cloudflare Worker endpoint
+  const WORKER_URL = API_BASE
 
   // Load all data on mount
   useEffect(() => {

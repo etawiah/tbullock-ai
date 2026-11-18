@@ -1,4 +1,5 @@
 import React, { useState, useEffect, memo } from 'react';
+import { API_BASE } from '../lib/config';
 
 /**
  * MenuEditor Component with Draft/Publish Workflow
@@ -19,7 +20,7 @@ import React, { useState, useEffect, memo } from 'react';
  */
 
 const MenuEditor = memo(function MenuEditor({ inventory, customRecipes, onClose }) {
-  const WORKER_URL = 'https://bartender-api.eugene-tawiah.workers.dev/api';
+  const WORKER_URL = API_BASE;
 
   const SPIRIT_TYPES = [
     'vodka', 'gin', 'rum', 'tequila', 'whiskey', 'brandy',
