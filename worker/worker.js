@@ -180,16 +180,40 @@ function extractGeminiText(data) {
   return typeof text === 'string' ? text.trim() : '';
 }
 
+// Browsers on these origins may call the API cross-origin. Production is
+// same-origin (/api on each site), so this only matters for dev and previews.
+const ALLOWED_ORIGINS = new Set([
+  'https://bartender.tawiah.net',
+  'https://barmenu.tawiah.net',
+  'https://ai-bartender.pages.dev',
+  'https://barmenu.pages.dev',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173'
+]);
+const PREVIEW_ORIGIN = /^https:\/\/[a-z0-9-]+\.(ai-bartender|barmenu)\.pages\.dev$/;
+
+function corsHeadersFor(request, url) {
+  const headers = {
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type',
+    'Vary': 'Origin'
+  };
+  // The guest menu is public by design.
+  if (url.pathname === '/api/menu' && request.method !== 'POST') {
+    headers['Access-Control-Allow-Origin'] = '*';
+    return headers;
+  }
+  const origin = request.headers.get('Origin');
+  if (origin && (ALLOWED_ORIGINS.has(origin) || PREVIEW_ORIGIN.test(origin))) {
+    headers['Access-Control-Allow-Origin'] = origin;
+  }
+  return headers;
+}
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
-    // CORS headers
-    const corsHeaders = {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-    };
+    const corsHeaders = corsHeadersFor(request, url);
 
     // Handle CORS preflight
     if (request.method === 'OPTIONS') {

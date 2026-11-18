@@ -2,10 +2,22 @@ name = "bartender-api"
 main = "worker/worker.js"
 compatibility_date = "2024-01-01"
 
-# TypeScript configuration
+# Routing is managed in the Cloudflare dashboard (Worker > Settings > Domains & Routes):
+#   bartender.tawiah.net/api/*  (behind Cloudflare Access)
+#   barmenu.tawiah.net/api/*    (a WAF rule only lets GET /api/menu through)
+# Keep `route`/`routes` out of this file so `wrangler deploy` leaves those alone,
+# and keep workers.dev + preview URLs OFF: without these lines a deploy would
+# re-publish the whole API, with no login, at bartender-api.<account>.workers.dev.
+workers_dev = false
+preview_urls = false
+# Don't wipe plain-text variables set in the dashboard on deploy (secrets are never wiped).
+keep_vars = true
+
 [env.production]
 name = "bartender-api"
 main = "worker/worker.js"
+workers_dev = false
+preview_urls = false
 
 [env.development]
 name = "bartender-api-dev"
@@ -13,8 +25,6 @@ main = "worker/worker.js"
 vars = { ENVIRONMENT = "development" }
 
 # KV Namespace for storing inventory, recipes, favorites, menu, chat history
-# Run: wrangler kv:namespace create "BARTENDER_KV"
-# Then replace the id below with the one it gives you
 [[kv_namespaces]]
 binding = "BARTENDER_KV"
 id = "d55eed47007140c0be8b759b3789bfbd"
