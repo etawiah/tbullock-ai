@@ -1,5 +1,11 @@
 # 🍹 Tom Bullock - AI Personal Mixologist
 
+> **Docs:** how it actually works today is in [docs/architecture.md](docs/architecture.md)
+> (hosting, API, saving, deploy and rollback), [docs/data-model.md](docs/data-model.md)
+> (stored data, backups, restore) and [docs/known-issues.md](docs/known-issues.md).
+> The latest review is [docs/plans/review-2026-11-17.md](docs/plans/review-2026-11-17.md).
+> Older notes are in [docs/archive/](docs/archive/) and may be out of date.
+
 An AI-powered home bartender assistant that helps you manage your bar inventory, create custom cocktails, and get personalized drink recommendations. Built with React, Cloudflare Workers, and powered by Google Gemini AI with Groq fallback.
 
 **Live Demo:** [https://236626d7.ai-bartender.pages.dev](https://236626d7.ai-bartender.pages.dev)
@@ -284,7 +290,7 @@ Edit `worker/worker.js` and modify the `systemPrompt` to change how Tom Bullock 
 ### API Models
 
 The app currently uses:
-- **Gemini**: `gemini-1.5-flash-latest` (fast, free tier: 60 req/min, 1500 req/day)
+- **Gemini**: `gemini-2.5-flash`
 - **Groq**: Automatically used when Gemini is rate-limited
 
 To change models, edit the API endpoints in `worker/worker.js`.
@@ -320,12 +326,7 @@ When Gemini reaches rate limits:
    npm run worker:dev
    ```
 
-3. **Update the worker URL in `src/App.jsx`:**
-   ```javascript
-   const WORKER_URL = 'http://localhost:8787/api'
-   ```
-
-4. **Open:** http://localhost:5173
+3. **Open:** http://localhost:5173 (the dev server proxies `/api` to the worker on :8787)
 
 ### Development Scripts
 
@@ -336,6 +337,8 @@ npm run preview          # Preview production build
 npm run worker:dev       # Start worker locally
 npm run worker:deploy    # Deploy worker to Cloudflare
 npm run deploy           # Build and deploy everything
+npm test                 # Unit + Worker tests
+npm run smoke            # Phone-size browser test of every main flow
 ```
 
 ## 🏗️ Architecture
@@ -445,7 +448,7 @@ MIT License - Free to use for personal or commercial projects.
 ## 📞 Support & Documentation
 
 ### Issues
-- Check [MOBILE_UX_ANALYSIS.md](./MOBILE_UX_ANALYSIS.md) for mobile-specific details
+- Check [docs/known-issues.md](./docs/known-issues.md) for open issues
 - Check [CHANGELOG.md](./CHANGELOG.md) for recent updates
 - Open an issue on GitHub for bugs or feature requests
 

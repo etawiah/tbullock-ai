@@ -7,6 +7,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Review fixes (2026-11-18) — see docs/plans/review-2026-11-17.md
+
+#### Data safety
+- A failed load no longer replaces your inventory/favorites with demo data or wipes chat history and the shopping list.
+- −Shot / −1 oz / −2 oz, "+ Add Inventory", "Add Your First Item" and Import now save immediately (they used to be lost on reload).
+- Two phones no longer overwrite each other: saves carry a revision; conflicts merge.
+- Daily automatic backups (14 days) and "Export everything".
+- Chat "I made / I had …" inventory updates actually apply (and say exactly what changed).
+
+#### Fixes
+- White screen when choosing between two bottles; error boundary added.
+- Deleting favorites (incl. the last one); recipe editor no longer pops up after a drink; bottle choices remembered.
+- Low-stock "Add to Shopping List" works; shopping names can't crash the app.
+- Menu editor: phone layout, Discard deletes the draft, menu can be emptied, version dates, publish conflict check.
+- One unit conversion everywhere; export file names use the local date.
+
+#### Security
+- `wrangler.toml` keeps workers.dev and preview URLs off; CORS limited to the app's origins.
+- Guest menu escapes drink text (XSS); CSP and security headers on both sites.
+- Gemini key sent in a header; separate preview KV namespace.
+
+#### Mobile UX
+- Readable dark mode; + button no longer covers the Menu tab.
+- Pinch-zoom allowed, WCAG AA contrast, labelled tabs/buttons, 44px targets.
+- Undo toast after pours; screen stays on while a recipe is open; share the shopping list.
+- 5.6 KB logo instead of 1.6 MB.
+
+#### Tooling
+- `npm test` (Node test runner) and `npm run smoke` (Playwright, iPhone 13).
+
 ### Added - Mobile UX Improvements (2025-01-08)
 
 #### 🎯 Core Mobile Experience
