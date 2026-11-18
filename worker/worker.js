@@ -46,7 +46,7 @@ const formatInventoryForPrompt = (inventory = []) => {
       : '';
 
     return `- ${typeLabel}${brandLabel}${nameLabel} | ${proofLabel} | ${sizeLabel} | ${remainingLabel}${notesLabel ? ` | ${notesLabel}` : ''}`;
-  }).join('\\n');
+  }).join('\n');
 
   let text = inventoryLines;
   if (text.length > MAX_INVENTORY_CHARS) {
@@ -55,7 +55,7 @@ const formatInventoryForPrompt = (inventory = []) => {
 
   const omittedCount = Math.max(0, inventory.length - trimmedItems.length);
   if (omittedCount > 0) {
-    text += `\\n...and ${omittedCount} more items not shown`;
+    text += `\n...and ${omittedCount} more items not shown`;
   }
 
   return text;

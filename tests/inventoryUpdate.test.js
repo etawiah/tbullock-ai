@@ -72,3 +72,17 @@ test('chat endpoint applies the update to stored inventory and tells the user', 
     ai.restore()
   }
 })
+
+test('the AI sees one inventory line per bottle (real newlines, not "\\n")', async () => {
+  const ai = installFakeAI()
+  try {
+    await call({ BARTENDER_KV: makeKV(), GEMINI_API_KEY: 'k' }, 'POST', '/api/chat', {
+      message: 'hi', chatHistory: [], inventory: [{ type: 'Gin', name: 'A' }, { type: 'Rum', name: 'B' }]
+    })
+    const payload = JSON.stringify(ai.calls[0].body)
+    assert.ok(!payload.includes('\\\\n- '), 'literal backslash-n found in prompt')
+    assert.ok(payload.includes('Gin: A') && payload.includes('\\n- Rum: B'))
+  } finally {
+    ai.restore()
+  }
+})
