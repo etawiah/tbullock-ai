@@ -2579,6 +2579,8 @@ function App() {
             flex: 1,
             overflowY: 'auto',
             padding: '16px',
+            // keep the last items clear of the tab bar and the + button
+            paddingBottom: isMobile ? 'calc(150px + env(safe-area-inset-bottom))' : '16px',
             background: '#f5f5f5',
             position: 'relative'
           }}
@@ -3927,6 +3929,7 @@ function App() {
             flex: 1,
             overflowY: 'auto',
             padding: '16px',
+            paddingBottom: isMobile ? 'calc(150px + env(safe-area-inset-bottom))' : '16px',
             background: '#f5f5f5'
           }}
         >
@@ -3999,8 +4002,10 @@ function App() {
       )}
 
       {/* #9: Floating Action Button (FAB) */}
-      {isMobile && !fabMenuOpen && (
+      {/* Hidden on Chat: it covered the Menu tab there, and its actions don't apply. */}
+      {isMobile && !fabMenuOpen && currentView !== 'chat' && currentView !== 'menu' && (
         <button
+          aria-label="Quick actions"
           onClick={() => {
             hapticFeedback('medium')
             setFabMenuOpen(true)
@@ -4110,6 +4115,7 @@ function App() {
               🍹 Ask for Cocktail
             </button>
             <button
+              aria-label="Close quick actions"
               onClick={() => {
                 hapticFeedback('medium')
                 setFabMenuOpen(false)
