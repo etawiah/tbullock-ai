@@ -168,6 +168,17 @@ await scenario('quick-adjust', async expect => {
   await ctx.close()
 })
 
+await scenario('shopping-low-stock', async expect => {
+  const { ctx, page, errors } = await newPage()
+  await tab(page, 'Inventory').click(); await settle(page)
+  await page.getByText('Vodka', { exact: true }).first().click(); await settle(page)
+  await page.getByRole('button', { name: /Add to Shopping List/ }).first().click(); await settle(page, 1200)
+  const shopping = currentKV.json('shopping') || []
+  expect('low-stock bottle stays on the shopping list', shopping.some(i => i.name === 'New Amsterdam Vodka'), `shopping=${JSON.stringify(shopping.map(i => i.name))}`)
+  expect('no page errors', errors.length === 0, errors.join('; '))
+  await ctx.close()
+})
+
 await scenario('fab-add', async expect => {
   const { ctx, page } = await newPage()
   await tab(page, 'Inventory').click(); await settle(page)

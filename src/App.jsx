@@ -5,6 +5,7 @@ import { API_BASE } from './lib/config'
 import { loadList, requestJson } from './lib/api'
 import { createSaveQueue } from './lib/saveQueue'
 import { subtractPours, subtractAt, ML_PER_OZ } from './lib/inventory'
+import { isCoveredByInventory } from './lib/shopping'
 
 // Unit conversion utilities
 const ozToMl = (oz) => oz * 29.5735
@@ -1551,49 +1552,11 @@ function App() {
   useEffect(() => {
     if (shoppingList.length === 0 || inventory.length === 0 || !dataLoaded.shopping) return
 
-    const itemsToRemove = shoppingList.filter(shopItem => {
-      return inventory.some(invItem => {
-        const shopNameLower = shopItem.name.toLowerCase().trim()
-        const invNameLower = invItem.name.toLowerCase().trim()
-        const invTypeLower = (invItem.type || '').toLowerCase().trim()
-        const invBrandLower = (invItem.brand || '').toLowerCase().trim()
-
-        // Match logic (in order of specificity):
-        // 1. Exact name match (e.g., "Grey Goose Vodka" === "Grey Goose Vodka")
-        if (invNameLower === shopNameLower) return true
-
-        // 2. Shopping item matches inventory type exactly (e.g., "vodka" === type:"Vodka")
-        if (invTypeLower === shopNameLower) return true
-
-        // 3. Brand + name match for specific branded items
-        if (invBrandLower && shopItem.brand) {
-          const shopBrandLower = shopItem.brand.toLowerCase().trim()
-          if (invBrandLower === shopBrandLower && invNameLower === shopNameLower) {
-            return true
-          }
-        }
-
-        // 4. Smart substring match: Shopping item is a "word" contained in inventory name
-        //    AND shopping item is at least 4 chars (prevents matching "gin" in "ginger")
-        //    Example: shopping "vodka" matches inventory "Grey Goose Vodka"
-        if (shopNameLower.length >= 4) {
-          // Use word boundaries to prevent false matches
-          const wordBoundaryPattern = new RegExp(`\\b${shopNameLower}\\b`)
-          if (wordBoundaryPattern.test(invNameLower)) return true
-
-          // Also check if shopping item matches the type as a word
-          if (wordBoundaryPattern.test(invTypeLower)) return true
-        }
-
-        return false
-      })
-    })
+    const itemsToRemove = shoppingList.filter(shopItem => isCoveredByInventory(shopItem, inventory))
 
     if (itemsToRemove.length > 0) {
       console.log(`[Shopping] Auto-removing ${itemsToRemove.length} item(s) (now in inventory):`, itemsToRemove)
-      const updatedList = shoppingList.filter(shopItem =>
-        !itemsToRemove.some(removed => removed.name === shopItem.name)
-      )
+      const updatedList = shoppingList.filter(shopItem => !itemsToRemove.includes(shopItem))
       setShoppingList(updatedList)
     }
   }, [inventory, shoppingList, dataLoaded.shopping])
@@ -1987,6 +1950,7 @@ function App() {
       type: item.type || 'Recipe Ingredient',
       size: item.bottleSizeMl || item.size,
       amount: item.amount, // For recipe ingredients
+      source: item.source || (item.bottleSizeMl !== undefined ? 'low-stock' : 'recipe'),
       added: Date.now()
     }])
   }
