@@ -1878,7 +1878,7 @@ function App() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `bar-inventory-${new Date().toISOString().split('T')[0]}.csv`
+    a.download = `bar-inventory-${localDateStamp()}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -1888,7 +1888,7 @@ function App() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `bar-inventory-${new Date().toISOString().split('T')[0]}.json`
+    a.download = `bar-inventory-${localDateStamp()}.json`
     a.click()
     URL.revokeObjectURL(url)
   }
