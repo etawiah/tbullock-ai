@@ -22,3 +22,13 @@ test('subtractAt removes one shot (1.5 oz) from the chosen bottle only', () => {
   assert.equal(next[0].amountRemaining, '455.6')
   assert.equal(next[1].amountRemaining, '30')
 })
+
+test('toMl uses one consistent conversion for every unit', async () => {
+  const { toMl } = await import('../src/lib/inventory.js')
+  assert.equal(Math.round(toMl('1.5', 'oz') * 10) / 10, 44.4)
+  assert.equal(toMl(2, 'ml'), 2)
+  assert.equal(Math.round(toMl(1, 'tsp') * 100) / 100, 4.93)
+  assert.equal(Math.round(toMl(2, 'dash') * 100) / 100, 1.84)
+  assert.equal(toMl('abc', 'oz'), 0)
+  assert.equal(toMl(5, 'unknown'), 5)
+})

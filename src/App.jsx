@@ -6,7 +6,7 @@ import { loadList, requestJson } from './lib/api'
 import { createSaveQueue } from './lib/saveQueue'
 import { createListSync } from './lib/listSync'
 import { mergeChanges, recipeKey, shoppingKey } from './lib/mergeChanges'
-import { subtractPours, subtractAt, ML_PER_OZ } from './lib/inventory'
+import { subtractPours, subtractAt, ML_PER_OZ, toMl } from './lib/inventory'
 import { isCoveredByInventory } from './lib/shopping'
 
 // Unit conversion utilities
@@ -887,7 +887,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       const allMatches = inventory.filter(item => itemMatchesIngredient(item, ingNameLower))
 
       // Calculate needed amount
-      const neededMl = ing.unit === 'oz' ? parseFloat(ing.amount) * 30 : parseFloat(ing.amount)
+      const neededMl = toMl(ing.amount, ing.unit)
       const pantryTypes = ['other', 'garnish', 'tool', 'bitters', 'syrup']
 
       // For pantry items, just check existence
@@ -1001,7 +1001,7 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
     const updates = ingredientStatus
       .filter(ing => ing.matchedItem)
       .map(ing => {
-        const mlAmount = ing.unit === 'oz' ? parseFloat(ing.amount) * 30 : parseFloat(ing.amount)
+        const mlAmount = toMl(ing.amount, ing.unit)
         return {
           name: ing.matchedItem,
           subtract: mlAmount,
