@@ -734,15 +734,16 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
 
 // Recipe Card Component with Flexible Ingredient Matching
 // #22: Memoized to prevent unnecessary re-renders
-const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList, isMobile }) {
+const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList, onRememberBottles, isMobile }) {
   const [expanded, setExpanded] = useState(false)
   const [showBottleSelection, setShowBottleSelection] = useState(false)
   const [selectedBottles, setSelectedBottles] = useState(recipe?.selectedBottles || {})
 
-  // Reset selectedBottles when inventory changes to force fresh availability check
-  useEffect(() => {
-    setSelectedBottles({})
-  }, [inventory])
+  // A remembered bottle choice only counts while that bottle is still in the bar.
+  const chosenBottle = (ingName) => {
+    const name = selectedBottles[ingName]
+    return name ? inventory.find(item => item.name === name) || null : null
+  }
 
   // Helper function to check if an item matches an ingredient
   const itemMatchesIngredient = (item, ingNameLower) => {
@@ -893,8 +894,8 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       const isPantryItem = allMatches.length > 0 && pantryTypes.includes((allMatches[0].type || '').toLowerCase())
       if (isPantryItem) {
         let invItem = null
-        if (selectedBottles[ing.name]) {
-          invItem = inventory.find(item => item.name === selectedBottles[ing.name])
+        if (chosenBottle(ing.name)) {
+          invItem = chosenBottle(ing.name)
         } else if (allMatches.length > 0) {
           invItem = allMatches[0]
         }
@@ -914,9 +915,9 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       let invItem = null
       let remaining = 0
 
-      if (selectedBottles[ing.name]) {
+      if (chosenBottle(ing.name)) {
         // User explicitly selected a bottle - use it even if low
-        invItem = inventory.find(item => item.name === selectedBottles[ing.name])
+        invItem = chosenBottle(ing.name)
         remaining = parseFloat(invItem?.amountRemaining) || 0
       } else if (allMatches.length > 0) {
         // Filter matches to those with at least neededMl remaining
@@ -1026,21 +1027,16 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
       })
       .join('\n')
 
-    // Persist selected bottles to recipe
-    if (Object.keys(selectedBottles).length > 0) {
-      const updatedRecipe = {
-        ...recipe,
-        selectedBottles: selectedBottles
-      }
-      onEdit(updatedRecipe)
+    // Remember the bottles picked for this recipe (saved with the favorite).
+    // This used to call onEdit, which opened the recipe editor after every drink.
+    const remembered = { ...(recipe.selectedBottles || {}), ...selectedBottles }
+    if (JSON.stringify(remembered) !== JSON.stringify(recipe.selectedBottles || {})) {
+      onRememberBottles?.({ ...recipe, selectedBottles: remembered })
     }
 
     onMake(updates)
     alert(`Made ${recipe.name}!\n\nUsed from inventory:\n${bottleList}\n\nInventory updated.`)
     setShowBottleSelection(false)
-
-    // Reset selectedBottles after successful inventory update to force fresh availability check
-    setSelectedBottles({})
   }
 
   const addMissingToShoppingList = () => {
@@ -1235,8 +1231,8 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
 
                   {ing.allMatches.map((match, matchIdx) => {
                     const matchName = match.name
-                    const isSelected = selectedBottles[ing.name] === matchName ||
-                                       (!selectedBottles[ing.name] && matchIdx === 0)
+                    // Pre-select the bottle that will actually be used
+                    const isSelected = (chosenBottle(ing.name)?.name || ing.matchedItem || ing.allMatches[0]?.name) === matchName
 
                     return (
                       <label
@@ -3990,10 +3986,11 @@ function App() {
                 ) : (
                   customRecipes.map(recipe => (
                     <RecipeCard
-                      key={`${recipe.id}-${inventory.length}`}
+                      key={recipe.id}
                       recipe={recipe}
                       inventory={inventory}
                       onEdit={setEditingRecipe}
+                      onRememberBottles={(updated) => setCustomRecipes(prev => prev.map(r => (r.id === updated.id ? updated : r)))}
                       onDelete={deleteRecipe}
                       onMake={makeRecipe}
                       onAddToShoppingList={addToShoppingList}
