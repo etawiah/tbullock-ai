@@ -37,3 +37,17 @@ test('wrangler dev --remote uses a separate preview KV, not production', () => {
   const preview = toml.match(/^preview_id = "([0-9a-f]+)"/m)[1]
   assert.notEqual(id, preview)
 })
+
+test('Gemini API key is sent in a header, not the URL', async () => {
+  const { installFakeAI } = await import('./helpers/fake-ai.js')
+  const ai = installFakeAI()
+  try {
+    const e = { BARTENDER_KV: makeKV(), GEMINI_API_KEY: 'secret-key-123' }
+    await call(e, 'POST', '/api/chat', { message: 'hi', inventory: [], chatHistory: [] })
+    assert.equal(ai.calls.length, 1)
+    assert.ok(!ai.calls[0].url.includes('secret-key-123'))
+    assert.equal(ai.calls[0].headers['x-goog-api-key'], 'secret-key-123')
+  } finally {
+    ai.restore()
+  }
+})
