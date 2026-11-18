@@ -278,6 +278,23 @@ await scenario('two-phones', async expect => {
   await a.ctx.close(); await b.ctx.close()
 })
 
+await scenario('wake-lock', async expect => {
+  const ctx = await browser.newContext({ ...devices['iPhone 13'] })
+  await ctx.addInitScript(() => {
+    window.__wake = { requested: 0, released: 0 }
+    Object.defineProperty(navigator, 'wakeLock', { value: { request: async () => { window.__wake.requested++; return { release: async () => { window.__wake.released++ }, addEventListener() {} } } } })
+  })
+  const page = await ctx.newPage()
+  await page.goto(`http://localhost:${PORT}/`); await page.waitForTimeout(1200)
+  await tab(page, 'Favorites').click(); await settle(page)
+  await page.getByRole('button', { name: 'Show Details' }).first().click(); await settle(page, 400)
+  expect('screen wake lock requested while recipe open', await page.evaluate(() => window.__wake.requested) === 1)
+  expect('user is told the screen stays on', await page.getByText('Screen stays on').isVisible().catch(() => false))
+  await page.getByRole('button', { name: 'Hide Details' }).first().click(); await settle(page, 300)
+  expect('wake lock released when closed', await page.evaluate(() => window.__wake.released) === 1)
+  await ctx.close()
+})
+
 await scenario('delete-favorite', async expect => {
   const seed = seedData()
   seed.recipes = seed.recipes.slice(0, 1)

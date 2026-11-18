@@ -4,6 +4,7 @@ import BottomTabBar from './components/BottomTabBar'
 import { API_BASE } from './lib/config'
 import { loadList, requestJson } from './lib/api'
 import { createSaveQueue } from './lib/saveQueue'
+import { useWakeLock } from './lib/useWakeLock'
 import { createListSync } from './lib/listSync'
 import { mergeChanges, recipeKey, shoppingKey } from './lib/mergeChanges'
 import { subtractPours, subtractAt, ML_PER_OZ, toMl, pouredAmounts, addBack } from './lib/inventory'
@@ -736,6 +737,8 @@ function AddInventoryModal({ isOpen, onClose, item, onUpdateItem, onSaveAndAddAn
 // #22: Memoized to prevent unnecessary re-renders
 const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelete, onMake, onAddToShoppingList, onRememberBottles, isMobile }) {
   const [expanded, setExpanded] = useState(false)
+  // Keep the screen on while the recipe details are open
+  const screenKeptOn = useWakeLock(expanded)
   const [showBottleSelection, setShowBottleSelection] = useState(false)
   const [selectedBottles, setSelectedBottles] = useState(recipe?.selectedBottles || {})
 
@@ -1075,6 +1078,9 @@ const RecipeCard = memo(function RecipeCard({ recipe, inventory, onEdit, onDelet
 
       {expanded && (
         <>
+          {screenKeptOn && (
+            <p style={{ margin: '0 0 8px 0', fontSize: '13px', color: '#4b5563' }}>🔆 Screen stays on while this recipe is open</p>
+          )}
           {recipe.instructions && (
             <div style={{ marginBottom: '12px' }}>
               <strong style={{ fontSize: '14px' }}>Instructions:</strong>
