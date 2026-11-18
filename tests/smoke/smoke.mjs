@@ -199,6 +199,17 @@ await scenario('quick-adjust', async expect => {
   await ctx.close()
 })
 
+await scenario('empty-bar', async expect => {
+  currentKV = makeKV({ ...seedData(), inventory: [] })
+  const { ctx, page } = await newPage()
+  await tab(page, 'Inventory').click(); await settle(page)
+  await page.getByRole('button', { name: 'Add Your First Item' }).click(); await settle(page, 300)
+  await page.locator('input[placeholder="e.g. Grey Goose Vodka"]').fill('First Bottle')
+  await page.getByRole('button', { name: 'Done' }).click(); await settle(page, 1200)
+  expect('first bottle in an empty bar is saved', (currentKV.json('inventory') || []).some(i => i.name === 'First Bottle'))
+  await ctx.close()
+})
+
 await scenario('shopping-low-stock', async expect => {
   const { ctx, page, errors } = await newPage()
   await tab(page, 'Inventory').click(); await settle(page)

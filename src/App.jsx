@@ -1776,13 +1776,6 @@ function App() {
     }
   }
 
-  const addInventoryItem = () => {
-    const newItem = createEmptyInventoryItem()
-    // Add new item at the beginning so it appears at the top
-    setInventory([newItem, ...inventory])
-    // Clear search query so new item is visible
-    setSearchQuery('')
-  }
 
   // Modal functions
   const openAddItemModal = () => {
@@ -3192,7 +3185,7 @@ function App() {
               <div style={{ textAlign: 'center', color: '#666', padding: '40px 0' }}>
                 <p>Your bar is empty!</p>
                 <button
-                  onClick={addInventoryItem}
+                  onClick={openAddItemModal}
                   style={{
                     background: '#5a67d8',
                     color: 'white',
