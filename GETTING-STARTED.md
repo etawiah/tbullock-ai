@@ -222,7 +222,7 @@ tbullock-ai/
 
 # Reference materials
 ├── 1000 Best Bartender's Recipes.txt
-├── the-ideal-bartender-tom-bullock.txt
+├── assets/reference/the-ideal-bartender-tom-bullock.txt
 └── Home_Bar_Inventory.pdf
 ```
 
