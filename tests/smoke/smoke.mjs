@@ -74,6 +74,14 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(r.status, r.headers)
     return res.end(r.body)
   }
+  if (pathname.startsWith('/guest/')) {
+    const guestDir = path.join(ROOT, 'barmenu-public')
+    const f = path.join(guestDir, pathname.slice('/guest/'.length) || 'index.html')
+    if (f.startsWith(guestDir) && fs.existsSync(f) && !fs.statSync(f).isDirectory()) {
+      res.writeHead(200, { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream' })
+      return fs.createReadStream(f).pipe(res)
+    }
+  }
   let file = path.join(DIST, pathname)
   if (!file.startsWith(DIST) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(DIST, 'index.html')
   res.writeHead(200, { 'Content-Type': TYPES[path.extname(file)] || 'application/octet-stream' })
@@ -246,6 +254,22 @@ await scenario('menu', async expect => {
   await page.getByRole('button', { name: 'Publish' }).click(); await settle(page, 1200)
   expect('menu publishes', (currentKV.json('menu:live')?.items || []).length === 1)
   expect('no page errors', errors.length === 0, errors.join('; '))
+  await ctx.close()
+})
+
+await scenario('guest-menu', async expect => {
+  currentKV.put('menu:live', JSON.stringify({
+    id: 'menu-primary', version: 1,
+    items: [{ id: 'm1', name: '<img src=x onerror="window.__xss=1">Evil Fizz', description: '<script>window.__xss=2</script>gin, lime', primarySpirit: 'gin', status: 'active' },
+      { id: 'm2', name: 'Ginger Highball', description: 'soda, ginger', primarySpirit: 'mixer', status: 'active' }]
+  }))
+  const ctx = await browser.newContext({ ...devices['iPhone 13'] })
+  const page = await ctx.newPage()
+  await page.goto(`http://localhost:${PORT}/guest/index.html`); await page.waitForTimeout(1200)
+  await shot(page, 'guest-menu')
+  expect('menu text is not executed as HTML', await page.evaluate(() => window.__xss === undefined))
+  expect('menu text shown literally', await page.getByText('Evil Fizz').first().isVisible().catch(() => false))
+  expect('mixer drinks are listed', await page.getByText('Ginger Highball').first().isVisible().catch(() => false))
   await ctx.close()
 })
 

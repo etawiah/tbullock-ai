@@ -314,6 +314,16 @@
       }
     }
 
+    // Menu text comes from the API; escape it so it can never run as HTML/script.
+    function escapeHtml(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
     function renderMenu(items) {
       const container = document.querySelector('.container');
       const spiritIcons = {
@@ -357,8 +367,8 @@
             </div>
             ${grouped[spirit].map(item => `
               <div class="drink">
-                <div class="drink-name">${item.name}</div>
-                <div class="drink-description">${item.description}</div>
+                <div class="drink-name">${escapeHtml(item.name)}</div>
+                <div class="drink-description">${escapeHtml(item.description)}</div>
               </div>
             `).join('')}
           </div>
